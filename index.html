@@ -796,7 +796,7 @@
         <div class="sidebar-header">
             <div class="sidebar-brand">
                 <i class="fa-solid fa-microchip"></i>
-                <span>ESP32 Projekty</span>
+                <span>Blbovnik</span>
             </div>
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -2018,7 +2018,7 @@
             });
         }
 
-        // Náhled souboru bez ohledu na velikost (čisté stahování pro veřejný repozitář)
+        // Opravený náhled pro obrázky, PDF i TXT/kódy
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2037,27 +2037,47 @@
                     const preEl = elem.querySelector('pre');
 
                     if ((imgEl && !imgEl.src) || (iframeEl && !iframeEl.src) || (preEl && preEl.innerText.startsWith('['))) {
-                        fetch(file.content)
-                        .then(res => {
-                            if (!res.ok) throw new Error('Nelze načíst soubor (HTTP ' + res.status + ')');
-                            return res.blob();
-                        })
-                        .then(blob => {
-                            const blobUrl = window.URL.createObjectURL(blob);
-                            if (imgEl) imgEl.src = blobUrl;
-                            if (iframeEl) iframeEl.src = blobUrl;
-                            if (preEl) {
-                                blob.text().then(text => {
-                                    preEl.innerText = text;
-                                }).catch(() => {
-                                    preEl.innerText = '[Binární / velký soubor - stáhněte soubor pro zobrazení]';
-                                });
-                            }
-                        })
-                        .catch(err => {
-                            console.error("Preview load error:", err);
-                            if (preEl) preEl.innerText = 'Chyba při načítání náhledu: ' + err.message;
-                        });
+                        
+                        // Speciální zacházení pro PDF (načtení jako application/pdf blob)
+                        if (iframeEl) {
+                            fetch(file.content)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+                                iframeEl.src = window.URL.createObjectURL(pdfBlob);
+                            })
+                            .catch(err => {
+                                console.error("PDF preview error:", err);
+                            });
+                            return;
+                        }
+
+                        // Pro obrázky
+                        if (imgEl) {
+                            fetch(file.content)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                imgEl.src = window.URL.createObjectURL(blob);
+                            })
+                            .catch(err => {
+                                console.error("Image preview error:", err);
+                            });
+                            return;
+                        }
+
+                        // Pro TXT a zdrojové kódy
+                        if (preEl) {
+                            fetch(file.content)
+                            .then(res => res.text())
+                            .then(text => {
+                                preEl.innerText = text;
+                            })
+                            .catch(err => {
+                                console.error("Text preview error:", err);
+                                preEl.innerText = 'Chyba při načítání náhledu: ' + err.message;
+                            });
+                            return;
+                        }
                     }
                 }
             }
@@ -2070,23 +2090,13 @@
             const file = allFiles.find(f => f.id === fileId);
             if (!file || !file.content) return alert('Soubor nemá žádný obsah ke stažení.');
 
-            if (file.content.startsWith('https://raw.githubusercontent.com/')) {
-                const a = document.createElement('a');
-                a.href = file.content;
-                a.target = '_blank';
-                a.download = file.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            } else {
-                const a = document.createElement('a');
-                a.href = file.content;
-                a.target = '_blank';
-                a.download = file.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
+            const a = document.createElement('a');
+            a.href = file.content;
+            a.target = '_blank';
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
         function deleteFile(fileId) {
