@@ -1829,7 +1829,7 @@
         function sendToGitHub(base64Content, finalFileName, fileSize, event) {
             const token = getGitHubToken();
             const safeFileName = sanitizeFilename(finalFileName);
-            const uniqueRandom = Math.random().toString(36.substring(2, 8));
+            const uniqueRandom = Math.random().toString(36).substring(2, 8);
             const filePath = `uploads/project_${currentProjectId}/${Date.now()}_${uniqueRandom}_${safeFileName}`;
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
 
@@ -2248,9 +2248,10 @@
         }
 
         // =========================================================================
-        // 9. FIREBASE REALTIME SYNCHRONIZACE
+        // 9. FIREBASE REALTIME SYNCHRONIZACE S OŠETŘENÍM PRÁZDNÉHO STAVU
         // =========================================================================
         if (isFirebaseActive) {
+            // Pokud cache neobsahuje projekty, zkusíme počkat na snapshot
             if (firebaseProjects.length > 0) {
                 renderProjects();
                 if (!currentProjectId) {
@@ -2260,8 +2261,14 @@
             }
 
             db.collection('projects').onSnapshot(snapshot => {
-                firebaseProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
+                const fetchedProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Ochrana proti přepsání prázdným polem při výpadku sítě
+                if (fetchedProjects.length > 0 || firebaseProjects.length === 0) {
+                    firebaseProjects = fetchedProjects;
+                    localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
+                }
+                
                 renderProjects();
                 
                 if (!currentProjectId && firebaseProjects.length > 0) {
@@ -2278,14 +2285,20 @@
             }, err => console.error("Projects snapshot error:", err));
 
             db.collection('tasks').onSnapshot(snapshot => {
-                firebaseTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_tasks', JSON.stringify(firebaseTasks));
+                const fetchedTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (fetchedTasks.length > 0 || firebaseTasks.length === 0) {
+                    firebaseTasks = fetchedTasks;
+                    localStorage.setItem('cache_tasks', JSON.stringify(firebaseTasks));
+                }
                 renderTasks();
             }, err => console.error("Tasks snapshot error:", err));
 
             db.collection('folders').onSnapshot(snapshot => {
-                firebaseFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_folders', JSON.stringify(firebaseFolders));
+                const fetchedFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (fetchedFolders.length > 0 || firebaseFolders.length === 0) {
+                    firebaseFolders = fetchedFolders;
+                    localStorage.setItem('cache_folders', JSON.stringify(firebaseFolders));
+                }
                 renderExplorer();
             }, err => console.error("Folders snapshot error:", err));
 
