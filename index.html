@@ -796,7 +796,7 @@
         <div class="sidebar-header">
             <div class="sidebar-brand">
                 <i class="fa-solid fa-microchip"></i>
-                <span>ESP32 Projekty</span>
+                <span>Blbovnik</span>
             </div>
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -2061,7 +2061,7 @@
                     }
 
                     if (preEl) {
-                        // Pokud máme text uložený přímo v DB, zobrazíme ho hned
+                        // Pokud máme text uložený přímo v DB, dekódujeme a zobrazíme ho hned
                         if (file.rawText && file.rawText.startsWith('data:')) {
                             try {
                                 const base64Part = file.rawText.split(',')[1];
@@ -2094,19 +2094,65 @@
             }
         }
 
+        // Opravená funkce pro stahování s původním názvem souboru
         function downloadCodeFile(fileId) {
             const cloudFiles = isFirebaseActive ? firebaseFiles : [];
             const allFiles = [...cloudFiles, ...localFiles];
             const file = allFiles.find(f => f.id === fileId);
             if (!file || !file.content) return alert('Soubor nemá žádný obsah ke stažení.');
 
-            const a = document.createElement('a');
-            a.href = file.content;
-            a.target = '_blank';
-            a.download = file.name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            // Pokud máme přímo uložený raw text (např. u TXT/INO souborů), vytvoříme lokální objekt k okamžitému stažení pod správným jménem
+            if (file.rawText) {
+                let blobData = file.rawText;
+                if (file.rawText.startsWith('data:')) {
+                    const parts = file.rawText.split(',');
+                    const byteString = atob(parts[1]);
+                    const mimeString = parts[0].split(':')[1].split(';')[0];
+                    const ab = new ArrayBuffer(byteString.length);
+                    const ia = new Uint8Array(ab);
+                    for (let i = 0; i < byteString.length; i++) {
+                        ia[i] = byteString.charCodeAt(i);
+                    }
+                    blobData = new Blob([ab], { type: mimeString });
+                } else {
+                    blobData = new Blob([file.rawText], { type: 'text/plain;charset=utf-8' });
+                }
+
+                const blobUrl = window.URL.createObjectURL(blobData);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = file.name; // Zde se vynutí originální název souboru
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(blobUrl);
+                return;
+            }
+
+            // Fallback pro binární soubory (stažení přes fetch blob, aby prohlížeč respektoval `download` atribut)
+            fetch(file.content)
+                .then(res => res.blob())
+                .then(blob => {
+                    const blobUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(blobUrl);
+                })
+                .catch(err => {
+                    console.error("Download error:", err);
+                    // Krajní nouze - otevření odkazu v novém okně
+                    const a = document.createElement('a');
+                    a.href = file.content;
+                    a.target = '_blank';
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                });
         }
 
         function deleteFile(fileId) {
