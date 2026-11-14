@@ -1726,15 +1726,13 @@
             });
         }
 
-        // Pomocná funkce pro očištění názvu souboru pro GitHub cestu
         function sanitizeFilename(name) {
             return name
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // odstraní diakritiku
-                .replace(/\s+/g, "_") // nahradí mezery podtržítkem
-                .replace(/[^a-zA-Z0-9._-]/g, ""); // odstraní speciální znaky
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, "_")
+                .replace(/[^a-zA-Z0-9._-]/g, "");
         }
 
-        // Nahrávání souborů (u fotek se zeptá na zmenšení, ostatní soubory v plné velikosti bez limitu)
         function uploadFile(event) {
             const file = event.target.files[0];
             if (!file || !currentProjectId) return;
@@ -1753,7 +1751,7 @@
             }
 
             if (file.size > 70 * 1024 * 1024) {
-                alert('⚠️ Soubor je větší než 70 MB. Pro takto obří soubory použijte raději GitHub Desktop.');
+                alert('⚠️ Soubor je větší než 70 MB.');
                 event.target.value = '';
                 return;
             }
@@ -1816,7 +1814,6 @@
                 }
             }
 
-            // Nahrání v plné velikosti (ostatní soubory NEBO fotka, u které uživatel zvolil Zrušit)
             const reader = new FileReader();
             reader.onload = function(e) {
                 const base64Content = e.target.result.split(',')[1];
@@ -1825,12 +1822,12 @@
             reader.readAsDataURL(file);
         }
 
-        // Pomocná funkce pro odeslání na GitHub API (s unikátním časovým razítkem v cestě)
+        // 100% unikátní cesta zabraňující chybě 409 Conflict
         function sendToGitHub(base64Content, finalFileName, fileSize, event) {
             const token = getGitHubToken();
             const safeFileName = sanitizeFilename(finalFileName);
-            const uniqueRandom = Math.random().toString(36).substring(2, 8);
-            const filePath = `uploads/project_${currentProjectId}/${Date.now()}_${uniqueRandom}_${safeFileName}`;
+            const uniqueId = 'id_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+            const filePath = `uploads/project_${currentProjectId}/${uniqueId}_${safeFileName}`;
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
 
             fetch(url, {
@@ -2019,7 +2016,7 @@
             });
         }
 
-        // Opravený náhled souborů včetně TXT a kódů
+        // Vylepšený náhled souborů (TXT / Kódy / PDF / Obrázky)
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2037,7 +2034,6 @@
                     const iframeEl = elem.querySelector('iframe');
                     const preEl = elem.querySelector('pre');
 
-                    // PDF náhled
                     if (iframeEl && !iframeEl.src) {
                         fetch(file.content)
                         .then(res => res.blob())
@@ -2049,7 +2045,6 @@
                         return;
                     }
 
-                    // Obrázek náhled
                     if (imgEl && !imgEl.src) {
                         fetch(file.content)
                         .then(res => res.blob())
@@ -2060,10 +2055,13 @@
                         return;
                     }
 
-                    // TXT / Kód náhled (opraveno načítání)
-                    if (preEl && (preEl.innerText.startsWith('[') || preEl.innerText.trim() === '')) {
+                    if (preEl) {
+                        preEl.innerText = 'Načítám obsah...';
                         fetch(file.content)
-                        .then(res => res.text())
+                        .then(res => {
+                            if (!res.ok) throw new Error('Nelze načíst soubor');
+                            return res.text();
+                        })
                         .then(text => {
                             preEl.innerText = text;
                         })
@@ -2077,7 +2075,6 @@
             }
         }
 
-        // Stahování souboru
         function downloadCodeFile(fileId) {
             const cloudFiles = isFirebaseActive ? firebaseFiles : [];
             const allFiles = [...cloudFiles, ...localFiles];
@@ -2295,7 +2292,7 @@
                 const fetchedFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (fetchedFolders.length > 0 || firebaseFolders.length === 0) {
                     firebaseFolders = fetchedFolders;
-                    localStorage.setItem('cache_folders', JSON.stringify(fetchedFolders));
+                    localStorage.setItem('cache_folders', JSON.stringify(firebaseFolders));
                 }
                 renderExplorer();
             }, err => console.error("Folders snapshot error:", err));
