@@ -796,7 +796,7 @@
         <div class="sidebar-header">
             <div class="sidebar-brand">
                 <i class="fa-solid fa-microchip"></i>
-                <span>Blbovnik</span>
+                <span>ESP32 Projekty</span>
             </div>
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -1825,11 +1825,12 @@
             reader.readAsDataURL(file);
         }
 
-        // Pomocná funkce pro odeslání na GitHub API
+        // Pomocná funkce pro odeslání na GitHub API (s unikátním identifikátorem v cestě)
         function sendToGitHub(base64Content, finalFileName, fileSize, event) {
             const token = getGitHubToken();
             const safeFileName = sanitizeFilename(finalFileName);
-            const filePath = `uploads/project_${currentProjectId}/${Date.now()}_${safeFileName}`;
+            const uniqueRandom = Math.random().toString(36.substring(2, 8));
+            const filePath = `uploads/project_${currentProjectId}/${Date.now()}_${uniqueRandom}_${safeFileName}`;
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
 
             fetch(url, {
@@ -2018,7 +2019,7 @@
             });
         }
 
-        // Opravený náhled pro obrázky, PDF i TXT/kódy
+        // Náhled souborů
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2038,7 +2039,6 @@
 
                     if ((imgEl && !imgEl.src) || (iframeEl && !iframeEl.src) || (preEl && preEl.innerText.startsWith('['))) {
                         
-                        // Speciální zacházení pro PDF (načtení jako application/pdf blob)
                         if (iframeEl) {
                             fetch(file.content)
                             .then(res => res.blob())
@@ -2046,26 +2046,20 @@
                                 const pdfBlob = new Blob([blob], { type: 'application/pdf' });
                                 iframeEl.src = window.URL.createObjectURL(pdfBlob);
                             })
-                            .catch(err => {
-                                console.error("PDF preview error:", err);
-                            });
+                            .catch(err => console.error("PDF preview error:", err));
                             return;
                         }
 
-                        // Pro obrázky
                         if (imgEl) {
                             fetch(file.content)
                             .then(res => res.blob())
                             .then(blob => {
                                 imgEl.src = window.URL.createObjectURL(blob);
                             })
-                            .catch(err => {
-                                console.error("Image preview error:", err);
-                            });
+                            .catch(err => console.error("Image preview error:", err));
                             return;
                         }
 
-                        // Pro TXT a zdrojové kódy
                         if (preEl) {
                             fetch(file.content)
                             .then(res => res.text())
@@ -2083,7 +2077,7 @@
             }
         }
 
-        // Stahování souboru bez ohledu na velikost
+        // Stahování souboru
         function downloadCodeFile(fileId) {
             const cloudFiles = isFirebaseActive ? firebaseFiles : [];
             const allFiles = [...cloudFiles, ...localFiles];
@@ -2107,7 +2101,6 @@
             const allFiles = [...cloudFiles, ...localFiles];
             const file = allFiles.find(f => f.id === fileId);
 
-            // 1. Smazání z databáze nebo lokálního pole
             const localIdx = localFiles.findIndex(f => f.id === fileId);
             if (localIdx !== -1) {
                 localFiles.splice(localIdx, 1);
@@ -2119,7 +2112,6 @@
                 });
             }
 
-            // 2. Smazání fyzického souboru z GitHubu (pokud tam byl)
             if (file && file.content && file.content.startsWith('https://raw.githubusercontent.com/')) {
                 const parts = file.content.split(`/${GITHUB_CONFIG.branch}/`);
                 if (parts.length >= 2) {
