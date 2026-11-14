@@ -1816,12 +1816,9 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const base64Content = e.target.result.split(',')[1];
-                // Pro menší textové soubory si uložím obsah přímo do databáze, ať je náhled okamžitý
-                const textContent = (ext === 'txt' || ext === 'ino' || ext === 'cpp' || ext === 'h' || ext === 'py' || ext === 'js' || ext === 'html' || ext === 'css') 
-                    ? e.target.result 
-                    : null;
-                sendToGitHub(base64Content, finalFileName, formatSize(file.size), event, textContent);
+                const fullDataUrl = e.target.result;
+                const base64Content = fullDataUrl.split(',')[1];
+                sendToGitHub(base64Content, finalFileName, formatSize(file.size), event, fullDataUrl);
             };
             reader.readAsDataURL(file);
         }
@@ -2021,7 +2018,7 @@
             });
         }
 
-        // Spolehlivý náhled souborů (využívá uložený text nebo bezpečný fetch)
+        // Vylepšený a zcela spolehlivý náhled textových souborů
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2061,7 +2058,7 @@
                     }
 
                     if (preEl) {
-                        // Pokud máme text uložený přímo v DB, dekódujeme a zobrazíme ho hned
+                        // 1. Krok: Zkusíme dekódovat rawText z DB (pokud tam je dataURL)
                         if (file.rawText && file.rawText.startsWith('data:')) {
                             try {
                                 const base64Part = file.rawText.split(',')[1];
@@ -2069,39 +2066,78 @@
                                 preEl.innerText = decoded;
                                 return;
                             } catch(e) {}
-                        } else if (file.rawText) {
+                        } else if (file.rawText && file.rawText.trim() !== '') {
                             preEl.innerText = file.rawText;
                             return;
                         }
 
-                        // Jinak zkusíme stáhnout z GitHubu
+                        // 2. Krok: Pokud rawText v DB chybí (starší soubory), zkusíme ho stáhnout přes GitHub API (obsah souboru v base64)
                         preEl.innerText = 'Načítám obsah...';
-                        fetch(file.content)
-                        .then(res => {
-                            if (!res.ok) throw new Error('Nelze načíst soubor');
-                            return res.text();
-                        })
-                        .then(text => {
-                            preEl.innerText = text;
-                        })
-                        .catch(err => {
-                            console.error("Text preview error:", err);
-                            preEl.innerText = 'Chyba při načítání náhledu: ' + err.message;
-                        });
+                        
+                        const token = getGitHubToken();
+                        let filePath = '';
+                        try {
+                            const parts = file.content.split(`/${GITHUB_CONFIG.branch}/`);
+                            if (parts.length >= 2) filePath = parts[1];
+                        } catch(e) {}
+
+                        if (filePath && token) {
+                            const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
+                            fetch(apiUrl, {
+                                headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+                            })
+                            .then(res => {
+                                if (!res.ok) throw new Error('API chyba');
+                                return res.json();
+                            })
+                            .then(data => {
+                                if (data.content) {
+                                    // GitHub vrací base64 rozdělený na řádky
+                                    const cleanBase64 = data.content.replace(/\s/g, '');
+                                    const decodedText = decodeURIComponent(escape(atob(cleanBase64)));
+                                    preEl.innerText = decodedText;
+                                    
+                                    // Uložíme do paměti/DB, aby příště načtení bylo okamžité
+                                    file.rawText = decodedText;
+                                    if (isFirebaseActive && file.id && !file.id.startsWith('f_')) {
+                                        db.collection('files').doc(file.id).update({ rawText: decodedText }).catch(()=>{});
+                                    }
+                                } else {
+                                    throw new Error('Chybí obsah');
+                                }
+                            })
+                            .catch(err => {
+                                // 3. Krok: Fallback na přímý fetch raw odklonu s vypnutou cache
+                                fetch(file.content + '?t=' + Date.now())
+                                .then(res => {
+                                    if (!res.ok) throw new Error('Nelze načíst');
+                                    return res.text();
+                                })
+                                .then(text => { preEl.innerText = text; })
+                                .catch(e => {
+                                    preEl.innerText = 'Chyba při načítání náhledu. Můžete soubor stáhnout tlačítkem Stáhnout.';
+                                });
+                            });
+                        } else {
+                            // Pouze přímý fetch
+                            fetch(file.content + '?t=' + Date.now())
+                            .then(res => res.text())
+                            .then(text => { preEl.innerText = text; })
+                            .catch(() => { preEl.innerText = 'Nelze načíst náhled.'; });
+                        }
                         return;
                     }
                 }
             }
         }
 
-        // Opravená funkce pro stahování s původním názvem souboru
+        // Funkce pro stahování s původním názvem souboru
         function downloadCodeFile(fileId) {
             const cloudFiles = isFirebaseActive ? firebaseFiles : [];
             const allFiles = [...cloudFiles, ...localFiles];
             const file = allFiles.find(f => f.id === fileId);
             if (!file || !file.content) return alert('Soubor nemá žádný obsah ke stažení.');
 
-            // Pokud máme přímo uložený raw text (např. u TXT/INO souborů), vytvoříme lokální objekt k okamžitému stažení pod správným jménem
             if (file.rawText) {
                 let blobData = file.rawText;
                 if (file.rawText.startsWith('data:')) {
@@ -2121,7 +2157,7 @@
                 const blobUrl = window.URL.createObjectURL(blobData);
                 const a = document.createElement('a');
                 a.href = blobUrl;
-                a.download = file.name; // Zde se vynutí originální název souboru
+                a.download = file.name;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -2129,7 +2165,6 @@
                 return;
             }
 
-            // Fallback pro binární soubory (stažení přes fetch blob, aby prohlížeč respektoval `download` atribut)
             fetch(file.content)
                 .then(res => res.blob())
                 .then(blob => {
@@ -2143,8 +2178,6 @@
                     window.URL.revokeObjectURL(blobUrl);
                 })
                 .catch(err => {
-                    console.error("Download error:", err);
-                    // Krajní nouze - otevření odkazu v novém okně
                     const a = document.createElement('a');
                     a.href = file.content;
                     a.target = '_blank';
