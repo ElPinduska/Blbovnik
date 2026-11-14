@@ -1825,7 +1825,7 @@
             reader.readAsDataURL(file);
         }
 
-        // Pomocná funkce pro odeslání na GitHub API (s unikátním identifikátorem v cestě)
+        // Pomocná funkce pro odeslání na GitHub API (s unikátním časovým razítkem v cestě)
         function sendToGitHub(base64Content, finalFileName, fileSize, event) {
             const token = getGitHubToken();
             const safeFileName = sanitizeFilename(finalFileName);
@@ -1982,7 +1982,7 @@
                             <p>Pro zobrazení dokumentu <b>${escapeHtml(f.name)}</b> klikněte na tlačítko <b>Stáhnout</b>.</p>
                         </div>`;
                 } else {
-                    previewHtml = `<pre class="code-preview" id="preview-${f.id}">[Klikněte na Náhled pro načtení souboru]</pre>`;
+                    previewHtml = `<pre class="code-preview" id="preview-${f.id}">[Načítám obsah souboru...]</pre>`;
                 }
                 const li = document.createElement('li');
                 li.className = 'file-item';
@@ -2019,7 +2019,7 @@
             });
         }
 
-        // Náhled souborů
+        // Opravený náhled souborů včetně TXT a kódů
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2037,41 +2037,41 @@
                     const iframeEl = elem.querySelector('iframe');
                     const preEl = elem.querySelector('pre');
 
-                    if ((imgEl && !imgEl.src) || (iframeEl && !iframeEl.src) || (preEl && preEl.innerText.startsWith('['))) {
-                        
-                        if (iframeEl) {
-                            fetch(file.content)
-                            .then(res => res.blob())
-                            .then(blob => {
-                                const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-                                iframeEl.src = window.URL.createObjectURL(pdfBlob);
-                            })
-                            .catch(err => console.error("PDF preview error:", err));
-                            return;
-                        }
+                    // PDF náhled
+                    if (iframeEl && !iframeEl.src) {
+                        fetch(file.content)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+                            iframeEl.src = window.URL.createObjectURL(pdfBlob);
+                        })
+                        .catch(err => console.error("PDF preview error:", err));
+                        return;
+                    }
 
-                        if (imgEl) {
-                            fetch(file.content)
-                            .then(res => res.blob())
-                            .then(blob => {
-                                imgEl.src = window.URL.createObjectURL(blob);
-                            })
-                            .catch(err => console.error("Image preview error:", err));
-                            return;
-                        }
+                    // Obrázek náhled
+                    if (imgEl && !imgEl.src) {
+                        fetch(file.content)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            imgEl.src = window.URL.createObjectURL(blob);
+                        })
+                        .catch(err => console.error("Image preview error:", err));
+                        return;
+                    }
 
-                        if (preEl) {
-                            fetch(file.content)
-                            .then(res => res.text())
-                            .then(text => {
-                                preEl.innerText = text;
-                            })
-                            .catch(err => {
-                                console.error("Text preview error:", err);
-                                preEl.innerText = 'Chyba při načítání náhledu: ' + err.message;
-                            });
-                            return;
-                        }
+                    // TXT / Kód náhled (opraveno načítání)
+                    if (preEl && (preEl.innerText.startsWith('[') || preEl.innerText.trim() === '')) {
+                        fetch(file.content)
+                        .then(res => res.text())
+                        .then(text => {
+                            preEl.innerText = text;
+                        })
+                        .catch(err => {
+                            console.error("Text preview error:", err);
+                            preEl.innerText = 'Chyba při načítání náhledu: ' + err.message;
+                        });
+                        return;
                     }
                 }
             }
@@ -2251,7 +2251,6 @@
         // 9. FIREBASE REALTIME SYNCHRONIZACE S OŠETŘENÍM PRÁZDNÉHO STAVU
         // =========================================================================
         if (isFirebaseActive) {
-            // Pokud cache neobsahuje projekty, zkusíme počkat na snapshot
             if (firebaseProjects.length > 0) {
                 renderProjects();
                 if (!currentProjectId) {
@@ -2263,7 +2262,6 @@
             db.collection('projects').onSnapshot(snapshot => {
                 const fetchedProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
-                // Ochrana proti přepsání prázdným polem při výpadku sítě
                 if (fetchedProjects.length > 0 || firebaseProjects.length === 0) {
                     firebaseProjects = fetchedProjects;
                     localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
@@ -2297,7 +2295,7 @@
                 const fetchedFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (fetchedFolders.length > 0 || firebaseFolders.length === 0) {
                     firebaseFolders = fetchedFolders;
-                    localStorage.setItem('cache_folders', JSON.stringify(firebaseFolders));
+                    localStorage.setItem('cache_folders', JSON.stringify(fetchedFolders));
                 }
                 renderExplorer();
             }, err => console.error("Folders snapshot error:", err));
