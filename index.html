@@ -796,7 +796,7 @@
         <div class="sidebar-header">
             <div class="sidebar-brand">
                 <i class="fa-solid fa-microchip"></i>
-                <span>Blbovnik</span>
+                <span>ESP32 Projekty</span>
             </div>
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -1817,13 +1817,16 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const base64Content = e.target.result.split(',')[1];
-                sendToGitHub(base64Content, finalFileName, formatSize(file.size), event);
+                // Pro menší textové soubory si uložím obsah přímo do databáze, ať je náhled okamžitý
+                const textContent = (ext === 'txt' || ext === 'ino' || ext === 'cpp' || ext === 'h' || ext === 'py' || ext === 'js' || ext === 'html' || ext === 'css') 
+                    ? e.target.result 
+                    : null;
+                sendToGitHub(base64Content, finalFileName, formatSize(file.size), event, textContent);
             };
             reader.readAsDataURL(file);
         }
 
-        // 100% unikátní cesta zabraňující chybě 409 Conflict
-        function sendToGitHub(base64Content, finalFileName, fileSize, event) {
+        function sendToGitHub(base64Content, finalFileName, fileSize, event, directTextContent = null) {
             const token = getGitHubToken();
             const safeFileName = sanitizeFilename(finalFileName);
             const uniqueId = 'id_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
@@ -1856,6 +1859,7 @@
                         name: finalFileName,
                         size: fileSize,
                         content: downloadUrl,
+                        rawText: directTextContent || '',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     }).then(() => {
                         alert('Soubor "' + finalFileName + '" byl úspěšně nahrán na GitHub!');
@@ -1867,7 +1871,8 @@
                         folderId: currentFolderId,
                         name: finalFileName,
                         size: fileSize,
-                        content: downloadUrl
+                        content: downloadUrl,
+                        rawText: directTextContent || ''
                     });
                     localStorage.setItem('cache_local_files', JSON.stringify(localFiles));
                     renderExplorer();
@@ -1979,7 +1984,7 @@
                             <p>Pro zobrazení dokumentu <b>${escapeHtml(f.name)}</b> klikněte na tlačítko <b>Stáhnout</b>.</p>
                         </div>`;
                 } else {
-                    previewHtml = `<pre class="code-preview" id="preview-${f.id}">[Načítám obsah souboru...]</pre>`;
+                    previewHtml = `<pre class="code-preview" id="preview-${f.id}">[Klikněte na Náhled pro zobrazení]</pre>`;
                 }
                 const li = document.createElement('li');
                 li.className = 'file-item';
@@ -2016,7 +2021,7 @@
             });
         }
 
-        // Vylepšený náhled souborů (TXT / Kódy / PDF / Obrázky)
+        // Spolehlivý náhled souborů (využívá uložený text nebo bezpečný fetch)
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2029,7 +2034,7 @@
                 const allFiles = [...cloudFiles, ...localFiles];
                 const file = allFiles.find(f => f.id === fileId);
                 
-                if (file && file.content && file.content.startsWith('https://raw.githubusercontent.com/')) {
+                if (file) {
                     const imgEl = elem.querySelector('img');
                     const iframeEl = elem.querySelector('iframe');
                     const preEl = elem.querySelector('pre');
@@ -2056,6 +2061,20 @@
                     }
 
                     if (preEl) {
+                        // Pokud máme text uložený přímo v DB, zobrazíme ho hned
+                        if (file.rawText && file.rawText.startsWith('data:')) {
+                            try {
+                                const base64Part = file.rawText.split(',')[1];
+                                const decoded = decodeURIComponent(escape(atob(base64Part)));
+                                preEl.innerText = decoded;
+                                return;
+                            } catch(e) {}
+                        } else if (file.rawText) {
+                            preEl.innerText = file.rawText;
+                            return;
+                        }
+
+                        // Jinak zkusíme stáhnout z GitHubu
                         preEl.innerText = 'Načítám obsah...';
                         fetch(file.content)
                         .then(res => {
