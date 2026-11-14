@@ -2018,7 +2018,7 @@
             });
         }
 
-        // Náhled souboru bez ohledu na velikost
+        // Náhled souboru bez ohledu na velikost (čisté stahování pro veřejný repozitář)
         function toggleCodePreview(fileId) {
             const elem = document.getElementById(`preview-${fileId}`);
             if (!elem) return;
@@ -2032,17 +2032,12 @@
                 const file = allFiles.find(f => f.id === fileId);
                 
                 if (file && file.content && file.content.startsWith('https://raw.githubusercontent.com/')) {
-                    const token = getGitHubToken();
                     const imgEl = elem.querySelector('img');
                     const iframeEl = elem.querySelector('iframe');
                     const preEl = elem.querySelector('pre');
 
                     if ((imgEl && !imgEl.src) || (iframeEl && !iframeEl.src) || (preEl && preEl.innerText.startsWith('['))) {
-                        fetch(file.content, {
-                            headers: {
-                                'Authorization': `token ${token}`
-                            }
-                        })
+                        fetch(file.content)
                         .then(res => {
                             if (!res.ok) throw new Error('Nelze načíst soubor (HTTP ' + res.status + ')');
                             return res.blob();
@@ -2076,32 +2071,13 @@
             if (!file || !file.content) return alert('Soubor nemá žádný obsah ke stažení.');
 
             if (file.content.startsWith('https://raw.githubusercontent.com/')) {
-                const token = getGitHubToken();
-                alert('Stahuji soubor z GitHubu...');
-
-                fetch(file.content, {
-                    headers: {
-                        'Authorization': `token ${token}`
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error('Nelze načíst soubor z GitHubu (chyba ' + response.status + ')');
-                    return response.blob();
-                })
-                .then(blob => {
-                    const blobUrl = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = file.name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(blobUrl);
-                })
-                .catch(err => {
-                    console.error("Download error:", err);
-                    alert('Chyba při stahování souboru: ' + err.message);
-                });
+                const a = document.createElement('a');
+                a.href = file.content;
+                a.target = '_blank';
+                a.download = file.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
             } else {
                 const a = document.createElement('a');
                 a.href = file.content;
