@@ -295,6 +295,16 @@
         .deadline-item.orange { border-left: 4px solid #f97316; background: rgba(249, 115, 22, 0.12); }
         .deadline-item.red { border-left: 4px solid var(--danger-color); background: rgba(239, 68, 68, 0.12); }
 
+        /* Klikací cesta v přehledu termínů */
+        .deadline-path-link {
+            color: var(--accent-color);
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .deadline-path-link:hover {
+            text-decoration: underline;
+        }
+
         /* Tlačítka */
         .btn {
             padding: 8px 16px;
@@ -551,7 +561,7 @@
                 <div class="project-section">
                     <h2><i class="fa-solid fa-calendar-days" style="color: var(--warning-color);"></i> Všechny termíny ze všech projektů</h2>
                     <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem;">
-                        Zde vidíte kompletní přehled všech naplánovaných termínů (STK, lékaři, údržba...) napříč celým aplikací.
+                        Zde vidíte kompletní přehled všech naplánovaných termínů. Kliknutím na cestu u úkolu přejdete přímo do daného podprojektu.
                     </p>
                     <div class="deadline-list" id="global-all-deadlines-container"></div>
                 </div>
@@ -970,6 +980,8 @@
                 let pr = sp ? projects.find(p => p.id === sp.projectId) : null;
                 sortedTasks.push({
                     task: t,
+                    subId: sp ? sp.id : null,
+                    projId: pr ? pr.id : null,
                     subName: sp ? sp.name : 'Neznámý podprojekt',
                     projName: pr ? pr.name : 'Neznámý projekt',
                     eval: evalDate
@@ -986,17 +998,40 @@
             sortedTasks.forEach(item => {
                 const div = document.createElement('div');
                 div.className = `deadline-item ${item.eval.status}`;
+                
+                // Klikací cesta přes funkci jumpToTaskLocation
+                const pathHtml = item.projId && item.subId 
+                    ? `<a class="deadline-path-link" onclick="jumpToTaskLocation('${item.projId}', '${item.subId}')"><i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}</a>`
+                    : `<i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}`;
+
                 div.innerHTML = `
                     <div>
                         <strong style="font-size: 1rem;">${escapeHtml(item.task.title)}</strong>
                         <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 3px;">
-                            <i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}
+                            ${pathHtml}
                         </div>
                     </div>
                     <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
                 `;
                 container.appendChild(div);
             });
+        }
+
+        // Funkce pro skok přímo do projektu a podprojektu z globálního přehledu
+        function jumpToTaskLocation(projId, subId) {
+            currentProjectId = projId;
+            renderProjects();
+
+            let projects = isFirebaseActive ? firebaseProjects : localProjects;
+            let project = projects.find(p => p.id === projId);
+            if (project) {
+                document.getElementById('current-project-title').innerText = project.name;
+                document.getElementById('current-project-archived-badge').style.display = project.archived ? 'inline-flex' : 'none';
+                document.getElementById('btn-toggle-archive-project').innerHTML = project.archived ? '<i class="fa-solid fa-rotate-left"></i> Obnovit' : '<i class="fa-solid fa-box-archive"></i> Archivovat';
+                document.getElementById('project-actions-bar').style.display = 'flex';
+            }
+
+            selectSubproject(subId);
         }
 
         function backToSubprojectsList() {
