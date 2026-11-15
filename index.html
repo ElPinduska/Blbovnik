@@ -955,36 +955,68 @@
             }
         }
 
-        // Fotky
+        // Fotky s možností zmenšení / plné verze
         function uploadPhoto(event) {
             const file = event.target.files[0];
             if (!file || !currentSubprojectId) return;
+
             const userChoiceName = prompt('Název fotky:', file.name);
             if (!userChoiceName) return;
+
+            const resizeChoice = confirm("Chcete fotku automaticky zmenšit pro úsporu místa a rychlejší načítání?\n\nOK = Zmenšit na Full HD\nZrušit = Nahrát v plné (původní) velikosti");
 
             const token = getGitHubToken();
             if (!token) return alert('Chybí GitHub token!');
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const fullDataUrl = e.target.result;
-                const base64Content = fullDataUrl.split(',')[1];
-                const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    let canvas = document.createElement('canvas');
+                    let ctx = canvas.getContext('2d');
+                    let width = img.width;
+                    let height = img.height;
 
-                fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: 'Upload photo via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
-                }).then(res => res.json()).then(data => {
-                    const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
-                    if (isFirebaseActive) {
-                        db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl });
-                    } else {
-                        localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl });
-                        renderPhotos();
+                    if (resizeChoice) {
+                        const MAX_WIDTH = 1920;
+                        const MAX_HEIGHT = 1080;
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
                     }
-                    alert('Fotka nahrána!');
-                });
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const fullDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    const base64Content = fullDataUrl.split(',')[1];
+                    const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
+
+                    fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: 'Upload photo via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
+                    }).then(res => res.json()).then(data => {
+                        const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
+                        if (isFirebaseActive) {
+                            db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl });
+                        } else {
+                            localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl });
+                            renderPhotos();
+                        }
+                        alert('Fotka nahrána!');
+                    });
+                };
             };
             reader.readAsDataURL(file);
             event.target.value = '';
@@ -1021,7 +1053,7 @@
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
-        // Soubory a složky (Kódy & Soubory)
+        // Soubory a složky (Kódy & Soubory) s odděleným náhledem a stahováním
         function createFolder() {
             const name = document.getElementById('folder-name-input').value.trim();
             if (!name || !currentSubprojectId) return;
@@ -1122,8 +1154,9 @@
                 li.className = 'file-item';
                 li.innerHTML = `
                     <span><i class="fa-solid fa-file" style="color: var(--accent-color);"></i> ${escapeHtml(f.name)}</span>
-                    <div>
-                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.open('${f.content}', '_blank')"><i class="fa-solid fa-download"></i> Stáhnout</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.open('${f.content}', '_blank')"><i class="fa-solid fa-eye"></i> Náhled</button>
+                        <a class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none;" href="${f.content}" download="${escapeHtml(f.name)}" target="_blank"><i class="fa-solid fa-download"></i> Stáhnout</a>
                         <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteFile('${f.id}', '${escapeHtml(f.name)}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
