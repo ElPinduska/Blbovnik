@@ -530,7 +530,7 @@
         <header class="top-nav">
             <div class="project-title-container">
                 <button class="mobile-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
-                <h1 class="project-title" id="current-project-title">Vyberte projekt</h1>
+                <h1 class="project-title" id="current-project-title">Blížící se termíny (Vše)</h1>
                 <span id="current-project-archived-badge" class="archived-tag" style="display: none;">
                     <i class="fa-solid fa-box-archive"></i> Archivováno
                 </span>
@@ -544,7 +544,7 @@
             </div>
 
             <!-- Lišta hlavního projektu -->
-            <div class="project-actions-bar" id="project-actions-bar">
+            <div class="project-actions-bar" id="project-actions-bar" style="display: none;">
                 <button class="btn btn-secondary" onclick="editCurrentProjectName()">
                     <i class="fa-solid fa-pen-to-square"></i> Upravit projekt
                 </button>
@@ -557,7 +557,7 @@
             </div>
 
             <!-- KROK 0: GLOBÁLNÍ PŘEHLED VŠECH TERMÍNŮ -->
-            <div id="view-global-all-deadlines" style="display: none;">
+            <div id="view-global-all-deadlines">
                 <div class="project-section">
                     <h2><i class="fa-solid fa-calendar-days" style="color: var(--warning-color);"></i> Všechny termíny ze všech projektů</h2>
                     <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem;">
@@ -568,7 +568,7 @@
             </div>
 
             <!-- KROK 1: POHLED SEZNAMU PODPROJEKTŮ -->
-            <div id="view-subprojects-list">
+            <div id="view-subprojects-list" style="display: none;">
                 <!-- Upozornění na blížící se termíny v aktuálním projektu -->
                 <div class="deadline-alert-box" id="global-deadline-box" style="display: none;">
                     <div class="deadline-alert-title"><i class="fa-solid fa-bell" style="color: var(--warning-color);"></i> Blížící se termíny v tomto projektu</div>
@@ -798,7 +798,8 @@
             modules: { syntax: true, toolbar: [['bold', 'italic', 'underline'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], ['code-block'], ['clean']] }
         });
 
-        let currentProjectId = null;
+        // Startujeme přímo v globálním přehledu termínů
+        let currentProjectId = 'ALL_DEADLINES';
         let currentSubprojectId = null;
         let currentFolderId = 'root';
 
@@ -916,7 +917,6 @@
                 (p.archived ? archivedList : activeList).appendChild(li);
             });
 
-            // Zvýraznění globální položky
             const allDeadlinesLi = document.getElementById('sidebar-all-deadlines-item');
             if (allDeadlinesLi) {
                 if (currentProjectId === 'ALL_DEADLINES') {
@@ -944,7 +944,6 @@
             closeSidebar();
         }
 
-        // Výběr globálního přehledu všech termínů
         function selectGlobalAllDeadlines() {
             currentProjectId = 'ALL_DEADLINES';
             currentSubprojectId = null;
@@ -999,7 +998,6 @@
                 const div = document.createElement('div');
                 div.className = `deadline-item ${item.eval.status}`;
                 
-                // Klikací cesta přes funkci jumpToTaskLocation
                 const pathHtml = item.projId && item.subId 
                     ? `<a class="deadline-path-link" onclick="jumpToTaskLocation('${item.projId}', '${item.subId}')"><i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}</a>`
                     : `<i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}`;
@@ -1017,7 +1015,6 @@
             });
         }
 
-        // Funkce pro skok přímo do projektu a podprojektu z globálního přehledu
         function jumpToTaskLocation(projId, subId) {
             currentProjectId = projId;
             renderProjects();
@@ -1163,7 +1160,6 @@
             renderExplorer();
         }
 
-        // Úkoly
         let draggedTaskId = null;
         function handleTaskDragStart(e, id) { draggedTaskId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleTaskDragEnd(e) { e.target.classList.remove('dragging'); draggedTaskId = null; }
@@ -1383,7 +1379,6 @@
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
-        // Soubory a složky
         function createFolder() {
             const name = document.getElementById('folder-name-input').value.trim();
             if (!name || !currentSubprojectId) return;
@@ -1511,7 +1506,6 @@
             if (isFirebaseActive) db.collection('files').doc(id).delete();
         }
 
-        // Modaly a správa entit
         function openProjectModal(id = null) {
             document.getElementById('project-edit-id').value = id || '';
             document.getElementById('project-name-input').value = id ? (isFirebaseActive ? firebaseProjects : localProjects).find(p => p.id === id).name : '';
@@ -1637,14 +1631,17 @@
 
             if (isFirebaseActive) db.collection('projects').doc(currentProjectId).delete();
             else { localProjects = localProjects.filter(item => item.id !== currentProjectId); }
-            currentProjectId = null;
+            
+            selectGlobalAllDeadlines();
             renderProjects();
-            document.getElementById('current-project-title').innerText = 'Vyberte projekt';
-            document.getElementById('view-subprojects-list').style.display = 'none';
         }
 
-        function editCurrentProjectName() { if(currentProjectId) openProjectModal(currentProjectId); }
+        function editCurrentProjectName() { if(currentProjectId && currentProjectId !== 'ALL_DEADLINES') openProjectModal(currentProjectId); }
         function escapeHtml(text) { return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+
+        // Okamžité vykreslení mezipaměti při startu (nečeká se na pomalou síť)
+        renderProjects();
+        renderGlobalAllDeadlinesView();
 
         // Firebase Realtime sync
         if (isFirebaseActive) {
@@ -1652,39 +1649,38 @@
                 firebaseProjects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
                 renderProjects();
-                if (!currentProjectId && firebaseProjects.length > 0) {
-                    selectProject(firebaseProjects[0].id);
-                }
             }, err => {
                 console.error("Firebase chyba:", err);
-                renderProjects();
-                if (localProjects.length > 0) selectProject(localProjects[0].id);
             });
 
             db.collection('subprojects').onSnapshot(snap => {
                 firebaseSubprojects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localStorage.setItem('cache_subprojects', JSON.stringify(firebaseSubprojects));
                 if (currentProjectId && currentProjectId !== 'ALL_DEADLINES') renderSubprojects();
             });
+
             db.collection('tasks').onSnapshot(snap => {
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localStorage.setItem('cache_tasks', JSON.stringify(firebaseTasks));
                 if (currentSubprojectId) renderTasks();
                 if (currentProjectId === 'ALL_DEADLINES') renderGlobalAllDeadlinesView();
             });
+
             db.collection('photos').onSnapshot(snap => {
                 firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
                 if (currentSubprojectId) renderPhotos();
             });
+
             db.collection('folders').onSnapshot(snap => {
                 firebaseFolders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localStorage.setItem('cache_folders', JSON.stringify(firebaseFolders));
                 if (currentSubprojectId) renderExplorer();
             });
+
             db.collection('files').onSnapshot(snap => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderExplorer();
             });
-        } else {
-            renderProjects();
-            if (localProjects.length > 0) selectProject(localProjects[0].id);
         }
     </script>
 </body>
