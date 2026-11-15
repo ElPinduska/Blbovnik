@@ -723,6 +723,44 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
+        // Čisté stažení souboru přes Blob s přesným názvem bez číslic na začátku
+        async function downloadCleanFile(url, cleanFileName) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Chyba při stahování');
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = cleanFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            } catch (err) {
+                alert('Nepodařilo se stáhnout soubor: ' + err.message);
+            }
+        }
+
+        // Otevření náhledu v nové kartě (PDF se otevře přímo v prohlížeči místo stažení)
+        async function previewFile(url, fileName) {
+            const lowerName = fileName.toLowerCase();
+            if (lowerName.endsWith('.pdf')) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('Chyba při načítání PDF');
+                    const arrayBuffer = await response.arrayBuffer();
+                    const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+                    const blobUrl = URL.createObjectURL(pdfBlob);
+                    window.open(blobUrl, '_blank');
+                } catch (err) {
+                    alert('Nepodařilo se otevřít náhled PDF: ' + err.message);
+                }
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
         // Drag & Drop pro hlavní projekty
         let draggedProjId = null;
         function handleProjDragStart(e, id) { draggedProjId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
@@ -964,7 +1002,26 @@
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
-        // Fotky s možností zmenšení / plné verze a výpočtem velikosti
+        // Pomocná funkce pro nahrání fotky na GitHub
+        function sendPhotoToGitHub(base64Content, userChoiceName, exactBytes, token) {
+            const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
+            fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Upload photo via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
+            }).then(res => res.json()).then(data => {
+                const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
+                if (isFirebaseActive) {
+                    db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl, size: exactBytes });
+                } else {
+                    localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl, size: exactBytes });
+                    renderPhotos();
+                }
+                alert('Fotka nahrána!');
+            });
+        }
+
+        // Fotky – originál se odešle přímo bez konverze (zachová přesnou velikost a formát)
         function uploadPhoto(event) {
             const file = event.target.files[0];
             if (!file || !currentSubprojectId) return;
@@ -972,22 +1029,29 @@
             const userChoiceName = prompt('Název fotky:', file.name);
             if (!userChoiceName) return;
 
-            const resizeChoice = confirm("Chcete fotku automaticky zmenšit pro úsporu místa a rychlejší načítání?\n\nOK = Zmenšit na Full HD\nZrušit = Nahrát v plné (původní) velikosti");
+            const resizeChoice = confirm("Chcete fotku automaticky zmenšit pro úsporu místa a rychlejší načítání?\n\nOK = Zmenšit na Full HD\nZrušit = Nahrát v plné (původní) velikosti bez úprav");
 
             const token = getGitHubToken();
             if (!token) return alert('Chybí GitHub token!');
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = function() {
-                    let canvas = document.createElement('canvas');
-                    let ctx = canvas.getContext('2d');
-                    let width = img.width;
-                    let height = img.height;
+                const originalDataUrl = e.target.result;
 
-                    if (resizeChoice) {
+                if (!resizeChoice) {
+                    // Původní soubor bez jakékoliv změny – zachová přesný formát (PNG/JPG) i přesnou velikost
+                    const base64Content = originalDataUrl.split(',')[1];
+                    sendPhotoToGitHub(base64Content, userChoiceName, file.size, token);
+                } else {
+                    // Zmenšení přes canvas
+                    const img = new Image();
+                    img.src = originalDataUrl;
+                    img.onload = function() {
+                        let canvas = document.createElement('canvas');
+                        let ctx = canvas.getContext('2d');
+                        let width = img.width;
+                        let height = img.height;
+
                         const MAX_WIDTH = 1920;
                         const MAX_HEIGHT = 1080;
                         if (width > height) {
@@ -1001,36 +1065,17 @@
                                 height = MAX_HEIGHT;
                             }
                         }
-                    }
 
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
 
-                    const fullDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                    
-                    // Výpočet přibližné velikosti base64 dat v bytech
-                    const base64Length = fullDataUrl.length - (fullDataUrl.indexOf(',') + 1);
-                    const estimatedBytes = Math.round((base64Length * 3) / 4);
-
-                    const base64Content = fullDataUrl.split(',')[1];
-                    const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
-
-                    fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
-                        method: 'PUT',
-                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: 'Upload photo via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
-                    }).then(res => res.json()).then(data => {
-                        const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
-                        if (isFirebaseActive) {
-                            db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl, size: estimatedBytes });
-                        } else {
-                            localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl, size: estimatedBytes });
-                            renderPhotos();
-                        }
-                        alert('Fotka nahrána!');
-                    });
-                };
+                        const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        const base64Content = resizedDataUrl.split(',')[1];
+                        const estimatedBytes = Math.round((base64Content.length * 3) / 4);
+                        sendPhotoToGitHub(base64Content, userChoiceName, estimatedBytes, token);
+                    };
+                }
             };
             reader.readAsDataURL(file);
             event.target.value = '';
@@ -1051,17 +1096,19 @@
                 card.className = 'photo-card';
                 const sizeStr = formatBytes(p.size);
                 const sizeTag = sizeStr ? `<span class="photo-size-tag">${sizeStr}</span>` : '';
+                const photoUrl = p.content || p.url;
+                const safeName = escapeHtml(p.name);
 
                 card.innerHTML = `
-                    <img src="${p.content || p.url}" onclick="window.open('${p.content || p.url}', '_blank')">
+                    <img src="${photoUrl}" onclick="window.open('${photoUrl}', '_blank')">
                     <div class="photo-footer">
                         <div class="photo-info-row">
-                            <span style="font-weight: 600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px;">${escapeHtml(p.name)}</span>
+                            <span style="font-weight: 600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px;">${safeName}</span>
                             ${sizeTag}
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                            <a class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem; text-decoration: none;" href="${p.content || p.url}" download="${escapeHtml(p.name)}" target="_blank"><i class="fa-solid fa-download"></i> Stáhnout</a>
-                            <button class="btn-icon" style="color: var(--danger-color); padding: 2px 6px;" onclick="deletePhoto('${p.id}', '${escapeHtml(p.name)}')"><i class="fa-solid fa-trash"></i></button>
+                            <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="downloadCleanFile('${photoUrl}', '${safeName}')"><i class="fa-solid fa-download"></i> Stáhnout</button>
+                            <button class="btn-icon" style="color: var(--danger-color); padding: 2px 6px;" onclick="deletePhoto('${p.id}', '${safeName}')"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
                 `;
@@ -1175,12 +1222,13 @@
             allFiles.forEach(f => {
                 const li = document.createElement('li');
                 li.className = 'file-item';
+                const safeName = escapeHtml(f.name);
                 li.innerHTML = `
-                    <span><i class="fa-solid fa-file" style="color: var(--accent-color);"></i> ${escapeHtml(f.name)}</span>
+                    <span><i class="fa-solid fa-file" style="color: var(--accent-color);"></i> ${safeName}</span>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.open('${f.content}', '_blank')"><i class="fa-solid fa-eye"></i> Náhled</button>
-                        <a class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none;" href="${f.content}" download="${escapeHtml(f.name)}" target="_blank"><i class="fa-solid fa-download"></i> Stáhnout</a>
-                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteFile('${f.id}', '${escapeHtml(f.name)}')"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="previewFile('${f.content}', '${safeName}')"><i class="fa-solid fa-eye"></i> Náhled</button>
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="downloadCleanFile('${f.content}', '${safeName}')"><i class="fa-solid fa-download"></i> Stáhnout</button>
+                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteFile('${f.id}', '${safeName}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
                 list.appendChild(li);
@@ -1352,7 +1400,7 @@
                 if (currentSubprojectId) renderExplorer();
             });
             db.collection('files').onSnapshot(snap => {
-                firebaseFiles = snap.docs.map(doc => ({ id: doc.id,...doc.data() }));
+                firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderExplorer();
             });
         } else {
