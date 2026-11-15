@@ -37,6 +37,7 @@
             --warning-color: #f59e0b;
             --archive-color: #a855f7;
             --folder-color: #eab308;
+            --photo-color: #ec4899;
         }
 
         * {
@@ -144,27 +145,11 @@
             transition: background-color 0.2s, color 0.2s;
         }
 
-        .project-item:active {
-            cursor: grabbing;
-        }
-
-        .project-item.dragging {
-            opacity: 0.4;
-        }
-
-        .project-item:hover, .project-item.active {
-            background-color: #334155;
-            color: var(--text-primary);
-        }
-
-        .project-item.active {
-            border-left: 4px solid var(--accent-color);
-        }
-
-        .project-item.archived {
-            opacity: 0.75;
-            font-style: italic;
-        }
+        .project-item:active { cursor: grabbing; }
+        .project-item.dragging { opacity: 0.4; }
+        .project-item:hover, .project-item.active { background-color: #334155; color: var(--text-primary); }
+        .project-item.active { border-left: 4px solid var(--accent-color); }
+        .project-item.archived { opacity: 0.75; font-style: italic; }
 
         .project-info {
             display: flex;
@@ -219,10 +204,7 @@
             flex-wrap: wrap;
         }
 
-        .project-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
+        .project-title { font-size: 1.5rem; font-weight: 700; }
 
         .archived-tag {
             background-color: rgba(168, 85, 247, 0.2);
@@ -254,14 +236,8 @@
             flex-wrap: wrap;
         }
 
-        .breadcrumb-nav span {
-            color: var(--accent-color);
-            cursor: pointer;
-        }
-
-        .breadcrumb-nav span:hover {
-            text-decoration: underline;
-        }
+        .breadcrumb-nav span { color: var(--accent-color); cursor: pointer; }
+        .breadcrumb-nav span:hover { text-decoration: underline; }
 
         .project-section {
             background-color: var(--card-bg);
@@ -351,28 +327,31 @@
         .task-card:active { cursor: grabbing; }
         .task-card.dragging { opacity: 0.4; }
 
-        .task-left {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            flex-grow: 1;
-        }
+        .task-left { display: flex; align-items: center; gap: 14px; flex-grow: 1; }
+        .task-title { font-weight: 600; font-size: 1.05rem; }
+        .task-title.completed { text-decoration: line-through; color: var(--text-secondary); }
 
-        .task-title {
-            font-weight: 600;
-            font-size: 1.05rem;
-        }
-        .task-title.completed {
-            text-decoration: line-through;
-            color: var(--text-secondary);
-        }
-
-        .badge {
-            padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
-        }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
         .badge-p1 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
         .badge-p2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
         .badge-p3 { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+
+        /* Fotky Grid */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        .photo-card {
+            background-color: #0f172a;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .photo-card img { width: 100%; height: 140px; object-fit: cover; cursor: pointer; }
+        .photo-footer { padding: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
 
         /* Rich Text Editor */
         .editor-container-wrapper {
@@ -506,7 +485,7 @@
                 </div>
             </div>
 
-            <!-- KROK 2: POHLED DETAILU PODPROJEKTU (Úkoly, Návody, Kódy) -->
+            <!-- KROK 2: POHLED DETAILU PODPROJEKTU (Pořadí: Úkoly, Návody, Fotky, Kódy & Soubory) -->
             <div id="view-subproject-detail" style="display: none;">
                 <div class="breadcrumb-nav">
                     <span onclick="backToSubprojectsList()"><i class="fa-solid fa-arrow-left"></i> Zpět na podprojekty</span>
@@ -538,7 +517,19 @@
                     </div>
                 </section>
 
-                <!-- 3. KÓDY & SOUBORY -->
+                <!-- 3. FOTKY -->
+                <section class="project-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
+                        <button class="btn btn-primary" onclick="document.getElementById('photo-input').click()">
+                            <i class="fa-solid fa-camera"></i> Nahrát fotku
+                        </button>
+                        <input type="file" id="photo-input" accept="image/*" style="display: none;" onchange="uploadPhoto(event)">
+                    </div>
+                    <div class="photo-grid" id="photo-grid"></div>
+                </section>
+
+                <!-- 4. KÓDY & SOUBORY -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                         <h2><i class="fa-solid fa-code" style="color: var(--folder-color);"></i> Kódy & Soubory</h2>
@@ -672,6 +663,7 @@
         let firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
         let firebaseFolders = JSON.parse(localStorage.getItem('cache_folders') || '[]');
         let firebaseFiles = [];
+        let firebasePhotos = [];
         let localFiles = JSON.parse(localStorage.getItem('cache_local_files') || '[]');
 
         if (firebaseConfig.apiKey !== "VASE_API_KEY") {
@@ -706,7 +698,7 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // Dragan & Drop pro hlavní projekty
+        // Drag & Drop pro hlavní projekty
         let draggedProjId = null;
         function handleProjDragStart(e, id) { draggedProjId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleProjDragEnd(e) { e.target.classList.remove('dragging'); draggedProjId = null; }
@@ -776,7 +768,7 @@
             renderSubprojects();
         }
 
-        // Dragan & Drop pro podprojekty
+        // Drag & Drop pro podprojekty
         let draggedSubProjId = null;
         function handleSubDragStart(e, id) { draggedSubProjId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleSubDragEnd(e) { e.target.classList.remove('dragging'); draggedSubProjId = null; }
@@ -848,6 +840,7 @@
                 quill.root.innerHTML = sub.docContent || '';
             }
             renderTasks();
+            renderPhotos();
             renderExplorer();
         }
 
@@ -930,6 +923,72 @@
                 if (sub) sub.docContent = htmlContent;
                 alert('Návody uloženy lokálně!');
             }
+        }
+
+        // Fotky
+        function uploadPhoto(event) {
+            const file = event.target.files[0];
+            if (!file || !currentSubprojectId) return;
+            const userChoiceName = prompt('Název fotky:', file.name);
+            if (!userChoiceName) return;
+
+            const token = getGitHubToken();
+            if (!token) return alert('Chybí GitHub token!');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const fullDataUrl = e.target.result;
+                const base64Content = fullDataUrl.split(',')[1];
+                const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
+
+                fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: 'Upload photo via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
+                }).then(res => res.json()).then(data => {
+                    const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
+                    if (isFirebaseActive) {
+                        db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl });
+                    } else {
+                        localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl });
+                        renderPhotos();
+                    }
+                    alert('Fotka nahrána!');
+                });
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function renderPhotos() {
+            const grid = document.getElementById('photo-grid');
+            grid.innerHTML = '';
+            const allPhotos = [...(isFirebaseActive ? firebasePhotos : []), ...localFiles].filter(f => f.isPhoto && f.subprojectId === currentSubprojectId);
+
+            if (allPhotos.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-secondary); grid-column: 1/-1;">Zatím žádné fotky.</p>';
+                return;
+            }
+
+            allPhotos.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'photo-card';
+                card.innerHTML = `
+                    <img src="${p.content || p.url}" onclick="window.open('${p.content || p.url}', '_blank')">
+                    <div class="photo-footer">
+                        <span>${escapeHtml(p.name)}</span>
+                        <button class="btn-icon" style="color: var(--danger-color);" onclick="deletePhoto('${p.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function deletePhoto(id) {
+            if (!confirm('Smazat fotku?')) return;
+            localFiles = localFiles.filter(f => f.id !== id);
+            renderPhotos();
+            if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
         // Soubory a složky (Kódy & Soubory)
@@ -1021,7 +1080,7 @@
         function renderFiles() {
             const list = document.getElementById('file-list');
             list.innerHTML = '';
-            const allFiles = [...(isFirebaseActive ? firebaseFiles : []), ...localFiles].filter(f => f.subprojectId === currentSubprojectId && (f.folderId || 'root') === currentFolderId);
+            const allFiles = [...(isFirebaseActive ? firebaseFiles : []), ...localFiles].filter(f => f.subprojectId === currentSubprojectId && (f.folderId || 'root') === currentFolderId && !f.isPhoto);
 
             if (allFiles.length === 0) {
                 list.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Žádné soubory v této složce.</p>';
@@ -1176,6 +1235,10 @@
             db.collection('tasks').onSnapshot(snap => {
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderTasks();
+            });
+            db.collection('photos').onSnapshot(snap => {
+                firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
+                if (currentSubprojectId) renderPhotos();
             });
             db.collection('folders').onSnapshot(snap => {
                 firebaseFolders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
