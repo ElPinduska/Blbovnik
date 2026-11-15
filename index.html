@@ -389,7 +389,7 @@
         .badge-p1 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
         .badge-p2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
         .badge-p3 { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
-        
+
         .badge-date { background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 5px; }
         .badge-date.yellow { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
         .badge-date.orange { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
@@ -521,7 +521,7 @@
                 <div><strong>Pozor:</strong> Běží v lokálním režimu.</div>
             </div>
 
-            <!-- Lišta hl. projektu -->
+            <!-- Lišta hlavního projektu -->
             <div class="project-actions-bar" id="project-actions-bar">
                 <button class="btn btn-secondary" onclick="editCurrentProjectName()">
                     <i class="fa-solid fa-pen-to-square"></i> Upravit projekt
@@ -534,7 +534,7 @@
                 </button>
             </div>
 
-            <!-- KROK 1: SEZNAM PODPROJEKTŮ -->
+            <!-- KROK 1: POHLED SEZNAMU PODPROJEKTŮ -->
             <div id="view-subprojects-list">
                 <!-- Upozornění na blížící se termíny napříč projektem -->
                 <div class="deadline-alert-box" id="global-deadline-box" style="display: none;">
@@ -553,7 +553,7 @@
                 </div>
             </div>
 
-            <!-- KROK 2: DETAIL PODPROJEKTU -->
+            <!-- KROK 2: POHLED DETAILU PODPROJEKTU -->
             <div id="view-subproject-detail" style="display: none;">
                 <div class="breadcrumb-nav">
                     <span onclick="backToSubprojectsList()"><i class="fa-solid fa-arrow-left"></i> Zpět na podprojekty</span>
@@ -734,7 +734,6 @@
         let db = null;
         let isFirebaseActive = false;
 
-        // Bezpečné načtení dat z localStorage s ochranou proti poškození
         let firebaseProjects = [];
         let firebaseSubprojects = [];
         let firebaseTasks = [];
@@ -785,6 +784,7 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
+        // Výpočet stavu data (žlutá pro 8-14 dní, oranžová/červená pro <= 7 dní nebo prošlé)
         function getDueDateStatus(dueDateStr) {
             if (!dueDateStr) return { status: '', text: '' };
             const today = new Date();
@@ -800,6 +800,7 @@
             return { status: '', text: formattedDate, diff: diffDays };
         }
 
+        // Čisté stažení souboru
         async function downloadCleanFile(url, cleanFileName) {
             try {
                 const response = await fetch(url);
@@ -862,7 +863,7 @@
             const activeList = document.getElementById('project-list-active');
             const archivedList = document.getElementById('project-list-archived');
             if (!activeList || !archivedList) return;
-            
+
             activeList.innerHTML = ''; archivedList.innerHTML = '';
 
             let projects = isFirebaseActive ? firebaseProjects : localProjects;
@@ -909,11 +910,12 @@
             renderGlobalDeadlines();
         }
 
+        // Vykreslení boxu s blížícími se termíny v projektu
         function renderGlobalDeadlines() {
             const box = document.getElementById('global-deadline-box');
             const listContainer = document.getElementById('global-deadline-list');
             if (!box || !listContainer) return;
-            
+
             listContainer.innerHTML = '';
             if (!currentProjectId) { box.style.display = 'none'; return; }
 
@@ -1028,6 +1030,7 @@
             renderExplorer();
         }
 
+        // Úkoly
         let draggedTaskId = null;
         function handleTaskDragStart(e, id) { draggedTaskId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleTaskDragEnd(e) { e.target.classList.remove('dragging'); draggedTaskId = null; }
@@ -1247,6 +1250,7 @@
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
+        // Soubory a složky
         function createFolder() {
             const name = document.getElementById('folder-name-input').value.trim();
             if (!name || !currentSubprojectId) return;
@@ -1374,6 +1378,7 @@
             if (isFirebaseActive) db.collection('files').doc(id).delete();
         }
 
+        // Modaly a správa entit
         function openProjectModal(id = null) {
             document.getElementById('project-edit-id').value = id || '';
             document.getElementById('project-name-input').value = id ? (isFirebaseActive ? firebaseProjects : localProjects).find(p => p.id === id).name : '';
@@ -1508,7 +1513,7 @@
         function editCurrentProjectName() { if(currentProjectId) openProjectModal(currentProjectId); }
         function escapeHtml(text) { return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
-        // Firebase Realtime sync nebo lokální spuštění
+        // Firebase Realtime sync
         if (isFirebaseActive) {
             db.collection('projects').onSnapshot(snap => {
                 firebaseProjects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
