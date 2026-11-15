@@ -357,7 +357,7 @@
         /* Fotky Grid */
         .photo-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 15px;
         }
         .photo-card {
@@ -369,7 +369,9 @@
             flex-direction: column;
         }
         .photo-card img { width: 100%; height: 140px; object-fit: cover; cursor: pointer; }
-        .photo-footer { padding: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+        .photo-footer { padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
+        .photo-info-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .photo-size-tag { font-size: 0.75rem; color: var(--accent-color); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; }
 
         /* Rich Text Editor */
         .editor-container-wrapper {
@@ -955,7 +957,14 @@
             }
         }
 
-        // Fotky s možností zmenšení / plné verze
+        // Pomocná funkce pro výpočet velikosti v KB/MB
+        function formatBytes(bytes) {
+            if (!bytes || isNaN(bytes)) return '';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Fotky s možností zmenšení / plné verze a výpočtem velikosti
         function uploadPhoto(event) {
             const file = event.target.files[0];
             if (!file || !currentSubprojectId) return;
@@ -999,6 +1008,11 @@
                     ctx.drawImage(img, 0, 0, width, height);
 
                     const fullDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    
+                    // Výpočet přibližné velikosti base64 dat v bytech
+                    const base64Length = fullDataUrl.length - (fullDataUrl.indexOf(',') + 1);
+                    const estimatedBytes = Math.round((base64Length * 3) / 4);
+
                     const base64Content = fullDataUrl.split(',')[1];
                     const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
 
@@ -1009,9 +1023,9 @@
                     }).then(res => res.json()).then(data => {
                         const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
                         if (isFirebaseActive) {
-                            db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl });
+                            db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl, size: estimatedBytes });
                         } else {
-                            localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl });
+                            localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl, size: estimatedBytes });
                             renderPhotos();
                         }
                         alert('Fotka nahrána!');
@@ -1035,11 +1049,20 @@
             allPhotos.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'photo-card';
+                const sizeStr = formatBytes(p.size);
+                const sizeTag = sizeStr ? `<span class="photo-size-tag">${sizeStr}</span>` : '';
+
                 card.innerHTML = `
                     <img src="${p.content || p.url}" onclick="window.open('${p.content || p.url}', '_blank')">
                     <div class="photo-footer">
-                        <span>${escapeHtml(p.name)}</span>
-                        <button class="btn-icon" style="color: var(--danger-color);" onclick="deletePhoto('${p.id}', '${escapeHtml(p.name)}')"><i class="fa-solid fa-trash"></i></button>
+                        <div class="photo-info-row">
+                            <span style="font-weight: 600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px;">${escapeHtml(p.name)}</span>
+                            ${sizeTag}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                            <a class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem; text-decoration: none;" href="${p.content || p.url}" download="${escapeHtml(p.name)}" target="_blank"><i class="fa-solid fa-download"></i> Stáhnout</a>
+                            <button class="btn-icon" style="color: var(--danger-color); padding: 2px 6px;" onclick="deletePhoto('${p.id}', '${escapeHtml(p.name)}')"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -1053,7 +1076,7 @@
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
-        // Soubory a složky (Kódy & Soubory) s odděleným náhledem a stahováním
+        // Soubory a složky (Kódy & Soubory)
         function createFolder() {
             const name = document.getElementById('folder-name-input').value.trim();
             if (!name || !currentSubprojectId) return;
@@ -1329,7 +1352,7 @@
                 if (currentSubprojectId) renderExplorer();
             });
             db.collection('files').onSnapshot(snap => {
-                firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                firebaseFiles = snap.docs.map(doc => ({ id: doc.id,...doc.data() }));
                 if (currentSubprojectId) renderExplorer();
             });
         } else {
