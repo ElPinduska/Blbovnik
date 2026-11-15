@@ -258,6 +258,42 @@
             padding-bottom: 10px;
         }
 
+        /* Upozornění na blížící se termíny */
+        .deadline-alert-box {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .deadline-alert-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-color);
+        }
+        .deadline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .deadline-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--card-border);
+        }
+        .deadline-item.yellow { border-left: 4px solid var(--warning-color); background: rgba(245, 158, 11, 0.08); }
+        .deadline-item.orange { border-left: 4px solid #f97316; background: rgba(249, 115, 22, 0.12); }
+        .deadline-item.red { border-left: 4px solid var(--danger-color); background: rgba(239, 68, 68, 0.12); }
+
         /* Tlačítka */
         .btn {
             padding: 8px 16px;
@@ -353,6 +389,11 @@
         .badge-p1 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
         .badge-p2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
         .badge-p3 { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+        
+        .badge-date { background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 5px; }
+        .badge-date.yellow { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .badge-date.orange { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
+        .badge-date.red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
         /* Fotky Grid */
         .photo-grid {
@@ -480,7 +521,7 @@
                 <div><strong>Pozor:</strong> Běží v lokálním režimu.</div>
             </div>
 
-            <!-- Lišta hlavního projektu -->
+            <!-- Lišta hl. projektu -->
             <div class="project-actions-bar" id="project-actions-bar">
                 <button class="btn btn-secondary" onclick="editCurrentProjectName()">
                     <i class="fa-solid fa-pen-to-square"></i> Upravit projekt
@@ -493,8 +534,14 @@
                 </button>
             </div>
 
-            <!-- KROK 1: POHLED SEZNAMU PODPROJEKTŮ -->
+            <!-- KROK 1: SEZNAM PODPROJEKTŮ -->
             <div id="view-subprojects-list">
+                <!-- Upozornění na blížící se termíny napříč projektem -->
+                <div class="deadline-alert-box" id="global-deadline-box" style="display: none;">
+                    <div class="deadline-alert-title"><i class="fa-solid fa-bell" style="color: var(--warning-color);"></i> Blížící se termíny v tomto projektu</div>
+                    <div class="deadline-list" id="global-deadline-list"></div>
+                </div>
+
                 <div class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-folder-tree" style="color: var(--accent-color);"></i> Podprojekty</h2>
@@ -506,7 +553,7 @@
                 </div>
             </div>
 
-            <!-- KROK 2: POHLED DETAILU PODPROJEKTU -->
+            <!-- KROK 2: DETAIL PODPROJEKTU -->
             <div id="view-subproject-detail" style="display: none;">
                 <div class="breadcrumb-nav">
                     <span onclick="backToSubprojectsList()"><i class="fa-solid fa-arrow-left"></i> Zpět na podprojekty</span>
@@ -517,9 +564,9 @@
                 <!-- 1. ÚKOLY -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2><i class="fa-solid fa-list-check" style="color: var(--accent-color);"></i> Úkoly</h2>
+                        <h2><i class="fa-solid fa-list-check" style="color: var(--accent-color);"></i> Úkoly & Termíny</h2>
                         <button class="btn btn-primary" onclick="openTaskModal()">
-                            <i class="fa-solid fa-plus"></i> Přidat úkol
+                            <i class="fa-solid fa-plus"></i> Přidat úkol / termín
                         </button>
                     </div>
                     <div id="tasks-container"></div>
@@ -620,11 +667,15 @@
 
     <div class="modal" id="modal-task">
         <div class="modal-content">
-            <div class="modal-header" id="task-modal-title">Přidat úkol</div>
+            <div class="modal-header" id="task-modal-title">Přidat úkol / termín</div>
             <input type="hidden" id="task-edit-id">
             <div class="form-group">
-                <label>Název úkolu</label>
-                <input type="text" id="task-title-input" class="form-control" placeholder="např. Koupit olej">
+                <label>Název (např. Výměna oleje, Lékař...)</label>
+                <input type="text" id="task-title-input" class="form-control" placeholder="např. STK na auto">
+            </div>
+            <div class="form-group">
+                <label>Termín (nepovinné)</label>
+                <input type="date" id="task-date-input" class="form-control">
             </div>
             <div class="form-group">
                 <label>Priorita / Barva</label>
@@ -636,7 +687,7 @@
             </div>
             <div class="form-group">
                 <label>Popis / Poznámka</label>
-                <textarea id="task-desc-input" class="form-control" placeholder="Podrobnosti k úkolu..."></textarea>
+                <textarea id="task-desc-input" class="form-control" placeholder="Podrobnosti..."></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button class="btn btn-secondary" onclick="closeModal('modal-task')">Zrušit</button>
@@ -710,7 +761,7 @@
 
         let localProjects = [{ id: 'p1', name: 'Barák', color: '#38bdf8', archived: false, order: 0 }];
         let localSubprojects = [{ id: 'sp1', projectId: 'p1', name: 'Plot', color: '#22c55e', order: 0, docContent: '<p>Návody pro plot</p>' }];
-        let localTasks = [{ id: 't1', subprojectId: 'sp1', title: 'Koupit sloupky', description: 'Nezapomenout galvanizované', priority: 'p2', completed: false, order: 0 }];
+        let localTasks = [{ id: 't1', subprojectId: 'sp1', title: 'Koupit sloupky', description: 'Nezapomenout galvanizované', priority: 'p2', completed: false, order: 0, dueDate: '' }];
         let localFolders = [];
 
         function toggleSidebar() {
@@ -723,7 +774,24 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // Čisté stažení souboru přes Blob s přesným názvem bez číslic na začátku
+        // Pomocná funkce pro vyhodnocení dnů do termínu (vrátí 'red', 'orange', 'yellow' nebo '')
+        function getDueDateStatus(dueDateStr) {
+            if (!dueDateStr) return { status: '', text: '' };
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const due = new Date(dueDateStr);
+            due.setHours(0,0,0,0);
+            const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+
+            const formattedDate = due.toLocaleDateString('cs-CZ');
+
+            if (diffDays < 0) return { status: 'red', text: `Prošlé (${formattedDate})`, diff: diffDays };
+            if (diffDays <= 7) return { status: 'orange', text: `Za ${diffDays === 0 ? 'dnes' : diffDays + ' dny'} (${formattedDate})`, diff: diffDays };
+            if (diffDays <= 14) return { status: 'yellow', text: `Za ${diffDays} dní (${formattedDate})`, diff: diffDays };
+            return { status: '', text: formattedDate, diff: diffDays };
+        }
+
+        // Čisté stažení souboru
         async function downloadCleanFile(url, cleanFileName) {
             try {
                 const response = await fetch(url);
@@ -742,7 +810,6 @@
             }
         }
 
-        // Otevření náhledu v nové kartě (PDF se otevře přímo v prohlížeči místo stažení)
         async function previewFile(url, fileName) {
             const lowerName = fileName.toLowerCase();
             if (lowerName.endsWith('.pdf')) {
@@ -761,7 +828,6 @@
             }
         }
 
-        // Drag & Drop pro hlavní projekty
         let draggedProjId = null;
         function handleProjDragStart(e, id) { draggedProjId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleProjDragEnd(e) { e.target.classList.remove('dragging'); draggedProjId = null; }
@@ -829,9 +895,51 @@
             document.getElementById('view-subprojects-list').style.display = 'block';
             document.getElementById('view-subproject-detail').style.display = 'none';
             renderSubprojects();
+            renderGlobalDeadlines();
         }
 
-        // Drag & Drop pro podprojekty
+        // Vykreslení boxu s blížícími se termíny pro aktuální projekt
+        function renderGlobalDeadlines() {
+            const box = document.getElementById('global-deadline-box');
+            const listContainer = document.getElementById('global-deadline-list');
+            listContainer.innerHTML = '';
+            if (!currentProjectId) { box.style.display = 'none'; return; }
+
+            let subs = (isFirebaseActive ? firebaseSubprojects : localSubprojects).filter(s => s.projectId === currentProjectId);
+            let subIds = subs.map(s => s.id);
+            let tasks = (isFirebaseActive ? firebaseTasks : localTasks).filter(t => subIds.includes(t.subprojectId) && !t.completed && t.dueDate);
+
+            let upcoming = [];
+            tasks.forEach(t => {
+                let evalDate = getDueDateStatus(t.dueDate);
+                if (evalDate.diff !== undefined && evalDate.diff <= 14) {
+                    let sp = subs.find(s => s.id === t.subprojectId);
+                    upcoming.push({ task: t, subName: sp ? sp.name : '', eval: evalDate });
+                }
+            });
+
+            upcoming.sort((a, b) => a.eval.diff - b.eval.diff);
+
+            if (upcoming.length === 0) {
+                box.style.display = 'none';
+                return;
+            }
+
+            box.style.display = 'block';
+            upcoming.forEach(item => {
+                const div = document.createElement('div');
+                div.className = `deadline-item ${item.eval.status}`;
+                div.innerHTML = `
+                    <div>
+                        <strong>${escapeHtml(item.task.title)}</strong> 
+                        <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 8px;">(${escapeHtml(item.subName)})</span>
+                    </div>
+                    <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
         let draggedSubProjId = null;
         function handleSubDragStart(e, id) { draggedSubProjId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleSubDragEnd(e) { e.target.classList.remove('dragging'); draggedSubProjId = null; }
@@ -938,7 +1046,7 @@
             tasks.sort((a, b) => (a.order || 0) - (b.order || 0));
 
             if (tasks.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-secondary);">Žádné úkoly.</p>';
+                container.innerHTML = '<p style="color: var(--text-secondary);">Žádné úkoly ani termíny.</p>';
                 return;
             }
 
@@ -955,13 +1063,20 @@
                     ? `<div class="task-description">${escapeHtml(t.description)}</div>` 
                     : '';
 
+                let dateBadgeHtml = '';
+                if (t.dueDate) {
+                    let evalDate = getDueDateStatus(t.dueDate);
+                    dateBadgeHtml = `<span class="badge badge-date ${evalDate.status}"><i class="fa-regular fa-calendar"></i> ${evalDate.text}</span>`;
+                }
+
                 card.innerHTML = `
                     <div class="task-main-row">
                         <div class="task-left">
                             <input type="checkbox" class="task-checkbox" style="width:20px;height:20px;accent-color:var(--accent-color);cursor:pointer;" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', this.checked)">
                             <span class="task-title ${t.completed ? 'completed' : ''}">${escapeHtml(t.title)}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            ${dateBadgeHtml}
                             <span class="badge badge-${t.priority}">${t.priority === 'p1' ? 'Vysoká' : t.priority === 'p2' ? 'Střední' : 'Nízká'}</span>
                             <button class="btn-icon" title="Upravit" onclick="openTaskModal('${t.id}')"><i class="fa-solid fa-pen"></i></button>
                             <button class="btn-icon" style="color: var(--danger-color);" title="Smazat" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button>
@@ -995,14 +1110,12 @@
             }
         }
 
-        // Pomocná funkce pro výpočet velikosti v KB/MB
         function formatBytes(bytes) {
             if (!bytes || isNaN(bytes)) return '';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
-        // Pomocná funkce pro nahrání fotky na GitHub
         function sendPhotoToGitHub(base64Content, userChoiceName, exactBytes, token) {
             const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
             fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
@@ -1021,7 +1134,6 @@
             });
         }
 
-        // Fotky – originál se odešle přímo bez konverze (zachová přesnou velikost a formát)
         function uploadPhoto(event) {
             const file = event.target.files[0];
             if (!file || !currentSubprojectId) return;
@@ -1121,7 +1233,7 @@
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
-        // Soubory a složky (Kódy & Soubory)
+        // Soubory a složky
         function createFolder() {
             const name = document.getElementById('folder-name-input').value.trim();
             if (!name || !currentSubprojectId) return;
@@ -1313,6 +1425,7 @@
             let t = id ? tasks.find(x => x.id === id) : null;
 
             document.getElementById('task-title-input').value = t ? t.title : '';
+            document.getElementById('task-date-input').value = t ? (t.dueDate || '') : '';
             document.getElementById('task-priority-input').value = t ? t.priority : 'p2';
             document.getElementById('task-desc-input').value = t ? (t.description || '') : '';
             document.getElementById('modal-task').style.display = 'flex';
@@ -1321,6 +1434,7 @@
         function saveTask() {
             const editId = document.getElementById('task-edit-id').value;
             const title = document.getElementById('task-title-input').value.trim();
+            const dueDate = document.getElementById('task-date-input').value;
             const priority = document.getElementById('task-priority-input').value;
             const description = document.getElementById('task-desc-input').value.trim();
             if (!title || !currentSubprojectId) return;
@@ -1330,11 +1444,11 @@
             const maxOrder = subTasks.length ? Math.max(...subTasks.map(t => t.order || 0)) + 1 : 0;
 
             if (editId) {
-                if (isFirebaseActive) db.collection('tasks').doc(editId).update({ title, priority, description }).then(() => closeModal('modal-task'));
-                else { let t = localTasks.find(x => x.id === editId); if(t){t.title=title;t.priority=priority;t.description=description;} closeModal('modal-task'); renderTasks(); }
+                if (isFirebaseActive) db.collection('tasks').doc(editId).update({ title, dueDate, priority, description }).then(() => closeModal('modal-task'));
+                else { let t = localTasks.find(x => x.id === editId); if(t){t.title=title;t.dueDate=dueDate;t.priority=priority;t.description=description;} closeModal('modal-task'); renderTasks(); }
             } else {
-                if (isFirebaseActive) db.collection('tasks').add({ subprojectId: currentSubprojectId, title, priority, description, completed: false, order: maxOrder }).then(() => closeModal('modal-task'));
-                else { localTasks.push({ id: 't_'+Date.now(), subprojectId: currentSubprojectId, title, priority, description, completed: false, order: maxOrder }); closeModal('modal-task'); renderTasks(); }
+                if (isFirebaseActive) db.collection('tasks').add({ subprojectId: currentSubprojectId, title, dueDate, priority, description, completed: false, order: maxOrder }).then(() => closeModal('modal-task'));
+                else { localTasks.push({ id: 't_'+Date.now(), subprojectId: currentSubprojectId, title, dueDate, priority, description, completed: false, order: maxOrder }); closeModal('modal-task'); renderTasks(); }
             }
         }
 
@@ -1394,9 +1508,10 @@
             db.collection('tasks').onSnapshot(snap => {
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderTasks();
+                if (currentProjectId && !currentSubprojectId) renderGlobalDeadlines();
             });
             db.collection('photos').onSnapshot(snap => {
-                firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
+                firebasePhotos = snap.docs.map(snap.doc => ({ id: snap.doc.id, isPhoto: true, ...snap.doc.data() }));
                 if (currentSubprojectId) renderPhotos();
             });
             db.collection('folders').onSnapshot(snap => {
