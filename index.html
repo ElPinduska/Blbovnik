@@ -284,11 +284,12 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
+            padding: 12px 16px;
             border-radius: 8px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--card-border);
+            margin-bottom: 8px;
         }
         .deadline-item.yellow { border-left: 4px solid var(--warning-color); background: rgba(245, 158, 11, 0.08); }
         .deadline-item.orange { border-left: 4px solid #f97316; background: rgba(249, 115, 22, 0.12); }
@@ -491,7 +492,18 @@
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <div class="project-section-title">
+        <!-- Speciální rychlá záložka pro všechny termíny -->
+        <div class="project-section-title"><span>Přehled</span></div>
+        <ul class="project-list" style="max-height: none;">
+            <li class="project-item" id="sidebar-all-deadlines-item" onclick="selectGlobalAllDeadlines()">
+                <div class="project-info">
+                    <div class="project-color" style="background-color: var(--warning-color)"></div>
+                    <span><i class="fa-solid fa-bell" style="color: var(--warning-color); margin-right: 6px;"></i> Blížící se termíny (Vše)</span>
+                </div>
+            </li>
+        </ul>
+
+        <div class="project-section-title" style="margin-top: 15px;">
             <span>Projekty</span>
             <button class="btn-add-project" onclick="openProjectModal()"><i class="fa-solid fa-plus"></i></button>
         </div>
@@ -534,9 +546,20 @@
                 </button>
             </div>
 
+            <!-- KROK 0: GLOBÁLNÍ PŘEHLED VŠECH TERMÍNŮ -->
+            <div id="view-global-all-deadlines" style="display: none;">
+                <div class="project-section">
+                    <h2><i class="fa-solid fa-calendar-days" style="color: var(--warning-color);"></i> Všechny termíny ze všech projektů</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem;">
+                        Zde vidíte kompletní přehled všech naplánovaných termínů (STK, lékaři, údržba...) napříč celým aplikací.
+                    </p>
+                    <div class="deadline-list" id="global-all-deadlines-container"></div>
+                </div>
+            </div>
+
             <!-- KROK 1: POHLED SEZNAMU PODPROJEKTŮ -->
             <div id="view-subprojects-list">
-                <!-- Upozornění na blížící se termíny napříč projektem -->
+                <!-- Upozornění na blížící se termíny v aktuálním projektu -->
                 <div class="deadline-alert-box" id="global-deadline-box" style="display: none;">
                     <div class="deadline-alert-title"><i class="fa-solid fa-bell" style="color: var(--warning-color);"></i> Blížící se termíny v tomto projektu</div>
                     <div class="deadline-list" id="global-deadline-list"></div>
@@ -784,7 +807,6 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // Výpočet stavu data (žlutá pro 8-14 dní, oranžová/červená pro <= 7 dní nebo prošlé)
         function getDueDateStatus(dueDateStr) {
             if (!dueDateStr) return { status: '', text: '' };
             const today = new Date();
@@ -800,7 +822,6 @@
             return { status: '', text: formattedDate, diff: diffDays };
         }
 
-        // Čisté stažení souboru
         async function downloadCleanFile(url, cleanFileName) {
             try {
                 const response = await fetch(url);
@@ -884,6 +905,16 @@
                 li.innerHTML = `<div class="project-info"><div class="project-color" style="background-color: ${p.color || '#38bdf8'}"></div><span>${escapeHtml(p.name || '')}</span></div>`;
                 (p.archived ? archivedList : activeList).appendChild(li);
             });
+
+            // Zvýraznění globální položky
+            const allDeadlinesLi = document.getElementById('sidebar-all-deadlines-item');
+            if (allDeadlinesLi) {
+                if (currentProjectId === 'ALL_DEADLINES') {
+                    allDeadlinesLi.classList.add('active');
+                } else {
+                    allDeadlinesLi.classList.remove('active');
+                }
+            }
         }
 
         function selectProject(id) {
@@ -897,27 +928,93 @@
                 document.getElementById('current-project-title').innerText = project.name;
                 document.getElementById('current-project-archived-badge').style.display = project.archived ? 'inline-flex' : 'none';
                 document.getElementById('btn-toggle-archive-project').innerHTML = project.archived ? '<i class="fa-solid fa-rotate-left"></i> Obnovit' : '<i class="fa-solid fa-box-archive"></i> Archivovat';
+                document.getElementById('project-actions-bar').style.display = 'flex';
                 backToSubprojectsList();
             }
             closeSidebar();
         }
 
-        function backToSubprojectsList() {
+        // Výběr globálního přehledu všech termínů
+        function selectGlobalAllDeadlines() {
+            currentProjectId = 'ALL_DEADLINES';
             currentSubprojectId = null;
-            document.getElementById('view-subprojects-list').style.display = 'block';
+            renderProjects();
+
+            document.getElementById('current-project-title').innerText = 'Blížící se termíny (Vše)';
+            document.getElementById('current-project-archived-badge').style.display = 'none';
+            document.getElementById('project-actions-bar').style.display = 'none';
+
+            document.getElementById('view-subprojects-list').style.display = 'none';
             document.getElementById('view-subproject-detail').style.display = 'none';
+            document.getElementById('view-global-all-deadlines').style.display = 'block';
+
+            renderGlobalAllDeadlinesView();
+            closeSidebar();
+        }
+
+        function renderGlobalAllDeadlinesView() {
+            const container = document.getElementById('global-all-deadlines-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            let projects = isFirebaseActive ? firebaseProjects : localProjects;
+            let subs = isFirebaseActive ? firebaseSubprojects : localSubprojects;
+            let tasks = isFirebaseActive ? firebaseTasks : localTasks;
+
+            let allTasksWithDate = tasks.filter(t => !t.completed && t.dueDate);
+            let sortedTasks = [];
+
+            allTasksWithDate.forEach(t => {
+                let evalDate = getDueDateStatus(t.dueDate);
+                let sp = subs.find(s => s.id === t.subprojectId);
+                let pr = sp ? projects.find(p => p.id === sp.projectId) : null;
+                sortedTasks.push({
+                    task: t,
+                    subName: sp ? sp.name : 'Neznámý podprojekt',
+                    projName: pr ? pr.name : 'Neznámý projekt',
+                    eval: evalDate
+                });
+            });
+
+            sortedTasks.sort((a, b) => a.eval.diff - b.eval.diff);
+
+            if (sortedTasks.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary);">Zatím žádné naplánované termíny v žádném projektu.</p>';
+                return;
+            }
+
+            sortedTasks.forEach(item => {
+                const div = document.createElement('div');
+                div.className = `deadline-item ${item.eval.status}`;
+                div.innerHTML = `
+                    <div>
+                        <strong style="font-size: 1rem;">${escapeHtml(item.task.title)}</strong>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 3px;">
+                            <i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}
+                        </div>
+                    </div>
+                    <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function backToSubprojectsList() {
+            currentSubprojectId = 'LIST';
+            document.getElementById('view-global-all-deadlines').style.display = 'none';
+            document.getElementById('view-subproject-detail').style.display = 'none';
+            document.getElementById('view-subprojects-list').style.display = 'block';
             renderSubprojects();
             renderGlobalDeadlines();
         }
 
-        // Vykreslení boxu s blížícími se termíny v projektu
         function renderGlobalDeadlines() {
             const box = document.getElementById('global-deadline-box');
             const listContainer = document.getElementById('global-deadline-list');
             if (!box || !listContainer) return;
 
             listContainer.innerHTML = '';
-            if (!currentProjectId) { box.style.display = 'none'; return; }
+            if (!currentProjectId || currentProjectId === 'ALL_DEADLINES') { box.style.display = 'none'; return; }
 
             let subs = (isFirebaseActive ? firebaseSubprojects : localSubprojects).filter(s => s.projectId === currentProjectId);
             let subIds = subs.map(s => s.id);
@@ -979,7 +1076,7 @@
             const grid = document.getElementById('subproject-grid');
             if (!grid) return;
             grid.innerHTML = '';
-            if (!currentProjectId) return;
+            if (!currentProjectId || currentProjectId === 'ALL_DEADLINES') return;
 
             let subs = (isFirebaseActive ? firebaseSubprojects : localSubprojects).filter(s => s.projectId === currentProjectId);
             subs.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1016,6 +1113,7 @@
         function selectSubproject(subId) {
             currentSubprojectId = subId;
             currentFolderId = 'root';
+            document.getElementById('view-global-all-deadlines').style.display = 'none';
             document.getElementById('view-subprojects-list').style.display = 'none';
             document.getElementById('view-subproject-detail').style.display = 'block';
 
@@ -1530,12 +1628,12 @@
 
             db.collection('subprojects').onSnapshot(snap => {
                 firebaseSubprojects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (currentProjectId) renderSubprojects();
+                if (currentProjectId && currentProjectId !== 'ALL_DEADLINES') renderSubprojects();
             });
             db.collection('tasks').onSnapshot(snap => {
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderTasks();
-                if (currentProjectId && !currentSubprojectId) renderGlobalDeadlines();
+                if (currentProjectId === 'ALL_DEADLINES') renderGlobalAllDeadlinesView();
             });
             db.collection('photos').onSnapshot(snap => {
                 firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
