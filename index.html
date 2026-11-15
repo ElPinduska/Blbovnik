@@ -320,16 +320,34 @@
             padding: 16px;
             margin-bottom: 12px;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 10px;
             cursor: grab;
         }
         .task-card:active { cursor: grabbing; }
         .task-card.dragging { opacity: 0.4; }
 
+        .task-main-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
         .task-left { display: flex; align-items: center; gap: 14px; flex-grow: 1; }
         .task-title { font-weight: 600; font-size: 1.05rem; }
         .task-title.completed { text-decoration: line-through; color: var(--text-secondary); }
+
+        .task-description {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            padding-left: 34px;
+            white-space: pre-wrap;
+            line-height: 1.4;
+            border-top: 1px dashed rgba(255, 255, 255, 0.05);
+            padding-top: 8px;
+            margin-top: 2px;
+        }
 
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
         .badge-p1 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
@@ -400,6 +418,7 @@
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-secondary); }
         .form-control { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--card-border); background-color: var(--bg-color); color: var(--text-primary); font-size: 0.95rem; }
+        textarea.form-control { resize: vertical; min-height: 90px; }
 
         .config-warning {
             background-color: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning-color); color: #fbbf24; padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; font-size: 0.9rem;
@@ -603,7 +622,7 @@
             <input type="hidden" id="task-edit-id">
             <div class="form-group">
                 <label>Název úkolu</label>
-                <input type="text" id="task-title-input" class="form-control">
+                <input type="text" id="task-title-input" class="form-control" placeholder="např. Koupit olej">
             </div>
             <div class="form-group">
                 <label>Priorita / Barva</label>
@@ -612,6 +631,10 @@
                     <option value="p2" selected>Střední (Žlutá)</option>
                     <option value="p1">Vysoká (Červená)</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Popis / Poznámka</label>
+                <textarea id="task-desc-input" class="form-control" placeholder="Podrobnosti k úkolu..."></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button class="btn btn-secondary" onclick="closeModal('modal-task')">Zrušit</button>
@@ -685,7 +708,7 @@
 
         let localProjects = [{ id: 'p1', name: 'Barák', color: '#38bdf8', archived: false, order: 0 }];
         let localSubprojects = [{ id: 'sp1', projectId: 'p1', name: 'Plot', color: '#22c55e', order: 0, docContent: '<p>Návody pro plot</p>' }];
-        let localTasks = [{ id: 't1', subprojectId: 'sp1', title: 'Koupit sloupky', priority: 'p2', completed: false, order: 0 }];
+        let localTasks = [{ id: 't1', subprojectId: 'sp1', title: 'Koupit sloupky', description: 'Nezapomenout galvanizované', priority: 'p2', completed: false, order: 0 }];
         let localFolders = [];
 
         function toggleSidebar() {
@@ -888,16 +911,23 @@
                 card.ondragover = (e) => handleTaskDragOver(e);
                 card.ondrop = (e) => handleTaskDrop(e, t.id);
 
+                const descHtml = t.description && t.description.trim() !== '' 
+                    ? `<div class="task-description">${escapeHtml(t.description)}</div>` 
+                    : '';
+
                 card.innerHTML = `
-                    <div class="task-left">
-                        <input type="checkbox" class="task-checkbox" style="width:20px;height:20px;accent-color:var(--accent-color);cursor:pointer;" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', this.checked)">
-                        <span class="task-title ${t.completed ? 'completed' : ''}">${escapeHtml(t.title)}</span>
+                    <div class="task-main-row">
+                        <div class="task-left">
+                            <input type="checkbox" class="task-checkbox" style="width:20px;height:20px;accent-color:var(--accent-color);cursor:pointer;" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', this.checked)">
+                            <span class="task-title ${t.completed ? 'completed' : ''}">${escapeHtml(t.title)}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="badge badge-${t.priority}">${t.priority === 'p1' ? 'Vysoká' : t.priority === 'p2' ? 'Střední' : 'Nízká'}</span>
+                            <button class="btn-icon" title="Upravit" onclick="openTaskModal('${t.id}')"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-icon" style="color: var(--danger-color);" title="Smazat" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="badge badge-${t.priority}">${t.priority === 'p1' ? 'Vysoká' : t.priority === 'p2' ? 'Střední' : 'Nízká'}</span>
-                        <button class="btn-icon" title="Upravit" onclick="openTaskModal('${t.id}')"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-icon" style="color: var(--danger-color);" title="Smazat" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button>
-                    </div>
+                    ${descHtml}
                 `;
                 container.appendChild(card);
             });
@@ -1171,7 +1201,12 @@
 
         function openTaskModal(id = null) {
             document.getElementById('task-edit-id').value = id || '';
-            document.getElementById('task-title-input').value = id ? (isFirebaseActive ? firebaseTasks : localTasks).find(t => t.id === id).title : '';
+            let tasks = isFirebaseActive ? firebaseTasks : localTasks;
+            let t = id ? tasks.find(x => x.id === id) : null;
+
+            document.getElementById('task-title-input').value = t ? t.title : '';
+            document.getElementById('task-priority-input').value = t ? t.priority : 'p2';
+            document.getElementById('task-desc-input').value = t ? (t.description || '') : '';
             document.getElementById('modal-task').style.display = 'flex';
         }
 
@@ -1179,6 +1214,7 @@
             const editId = document.getElementById('task-edit-id').value;
             const title = document.getElementById('task-title-input').value.trim();
             const priority = document.getElementById('task-priority-input').value;
+            const description = document.getElementById('task-desc-input').value.trim();
             if (!title || !currentSubprojectId) return;
 
             let tasks = isFirebaseActive ? firebaseTasks : localTasks;
@@ -1186,11 +1222,11 @@
             const maxOrder = subTasks.length ? Math.max(...subTasks.map(t => t.order || 0)) + 1 : 0;
 
             if (editId) {
-                if (isFirebaseActive) db.collection('tasks').doc(editId).update({ title, priority }).then(() => closeModal('modal-task'));
-                else { let t = localTasks.find(x => x.id === editId); if(t){t.title=title;t.priority=priority;} closeModal('modal-task'); renderTasks(); }
+                if (isFirebaseActive) db.collection('tasks').doc(editId).update({ title, priority, description }).then(() => closeModal('modal-task'));
+                else { let t = localTasks.find(x => x.id === editId); if(t){t.title=title;t.priority=priority;t.description=description;} closeModal('modal-task'); renderTasks(); }
             } else {
-                if (isFirebaseActive) db.collection('tasks').add({ subprojectId: currentSubprojectId, title, priority, completed: false, order: maxOrder }).then(() => closeModal('modal-task'));
-                else { localTasks.push({ id: 't_'+Date.now(), subprojectId: currentSubprojectId, title, priority, completed: false, order: maxOrder }); closeModal('modal-task'); renderTasks(); }
+                if (isFirebaseActive) db.collection('tasks').add({ subprojectId: currentSubprojectId, title, priority, description, completed: false, order: maxOrder }).then(() => closeModal('modal-task'));
+                else { localTasks.push({ id: 't_'+Date.now(), subprojectId: currentSubprojectId, title, priority, description, completed: false, order: maxOrder }); closeModal('modal-task'); renderTasks(); }
             }
         }
 
