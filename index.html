@@ -734,13 +734,24 @@
         let db = null;
         let isFirebaseActive = false;
 
-        let firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
-        let firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
-        let firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
-        let firebaseFolders = JSON.parse(localStorage.getItem('cache_folders') || '[]');
+        // Bezpečné načtení dat z localStorage s ochranou proti poškození
+        let firebaseProjects = [];
+        let firebaseSubprojects = [];
+        let firebaseTasks = [];
+        let firebaseFolders = [];
         let firebaseFiles = [];
         let firebasePhotos = [];
-        let localFiles = JSON.parse(localStorage.getItem('cache_local_files') || '[]');
+        let localFiles = [];
+
+        try {
+            firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
+            firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
+            firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
+            firebaseFolders = JSON.parse(localStorage.getItem('cache_folders') || '[]');
+            localFiles = JSON.parse(localStorage.getItem('cache_local_files') || '[]');
+        } catch(e) {
+            console.error("Chyba při parsování localStorage:", e);
+        }
 
         if (firebaseConfig.apiKey !== "VASE_API_KEY") {
             firebase.initializeApp(firebaseConfig);
@@ -774,7 +785,6 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // Pomocná funkce pro vyhodnocení dnů do termínu (vrátí 'red', 'orange', 'yellow' nebo '')
         function getDueDateStatus(dueDateStr) {
             if (!dueDateStr) return { status: '', text: '' };
             const today = new Date();
@@ -782,7 +792,6 @@
             const due = new Date(dueDateStr);
             due.setHours(0,0,0,0);
             const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
-
             const formattedDate = due.toLocaleDateString('cs-CZ');
 
             if (diffDays < 0) return { status: 'red', text: `Prošlé (${formattedDate})`, diff: diffDays };
@@ -791,7 +800,6 @@
             return { status: '', text: formattedDate, diff: diffDays };
         }
 
-        // Čisté stažení souboru
         async function downloadCleanFile(url, cleanFileName) {
             try {
                 const response = await fetch(url);
@@ -853,9 +861,12 @@
         function renderProjects() {
             const activeList = document.getElementById('project-list-active');
             const archivedList = document.getElementById('project-list-archived');
+            if (!activeList || !archivedList) return;
+            
             activeList.innerHTML = ''; archivedList.innerHTML = '';
 
             let projects = isFirebaseActive ? firebaseProjects : localProjects;
+            if (!Array.isArray(projects)) projects = [];
             projects.sort((a, b) => (a.order || 0) - (b.order || 0));
 
             projects.forEach(p => {
@@ -869,7 +880,7 @@
                     li.ondrop = (e) => handleProjDrop(e, p.id);
                 }
                 li.onclick = () => selectProject(p.id);
-                li.innerHTML = `<div class="project-info"><div class="project-color" style="background-color: ${p.color || '#38bdf8'}"></div><span>${escapeHtml(p.name)}</span></div>`;
+                li.innerHTML = `<div class="project-info"><div class="project-color" style="background-color: ${p.color || '#38bdf8'}"></div><span>${escapeHtml(p.name || '')}</span></div>`;
                 (p.archived ? archivedList : activeList).appendChild(li);
             });
         }
@@ -898,10 +909,11 @@
             renderGlobalDeadlines();
         }
 
-        // Vykreslení boxu s blížícími se termíny pro aktuální projekt
         function renderGlobalDeadlines() {
             const box = document.getElementById('global-deadline-box');
             const listContainer = document.getElementById('global-deadline-list');
+            if (!box || !listContainer) return;
+            
             listContainer.innerHTML = '';
             if (!currentProjectId) { box.style.display = 'none'; return; }
 
@@ -963,6 +975,7 @@
 
         function renderSubprojects() {
             const grid = document.getElementById('subproject-grid');
+            if (!grid) return;
             grid.innerHTML = '';
             if (!currentProjectId) return;
 
@@ -987,7 +1000,7 @@
                 card.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="project-color" style="background-color: ${sp.color || '#38bdf8'}"></div>
-                        <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(sp.name)}</span>
+                        <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(sp.name || '')}</span>
                     </div>
                     <div style="display: flex; justify-content: flex-end; gap: 5px; margin-top: 10px;">
                         <button class="btn-icon" title="Upravit" onclick="event.stopPropagation(); openSubprojectModal('${sp.id}')"><i class="fa-solid fa-pen"></i></button>
@@ -1015,7 +1028,6 @@
             renderExplorer();
         }
 
-        // Úkoly
         let draggedTaskId = null;
         function handleTaskDragStart(e, id) { draggedTaskId = id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
         function handleTaskDragEnd(e) { e.target.classList.remove('dragging'); draggedTaskId = null; }
@@ -1039,6 +1051,7 @@
 
         function renderTasks() {
             const container = document.getElementById('tasks-container');
+            if (!container) return;
             container.innerHTML = '';
             if (!currentSubprojectId) return;
 
@@ -1073,7 +1086,7 @@
                     <div class="task-main-row">
                         <div class="task-left">
                             <input type="checkbox" class="task-checkbox" style="width:20px;height:20px;accent-color:var(--accent-color);cursor:pointer;" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', this.checked)">
-                            <span class="task-title ${t.completed ? 'completed' : ''}">${escapeHtml(t.title)}</span>
+                            <span class="task-title ${t.completed ? 'completed' : ''}">${escapeHtml(t.title || '')}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             ${dateBadgeHtml}
@@ -1193,6 +1206,7 @@
 
         function renderPhotos() {
             const grid = document.getElementById('photo-grid');
+            if (!grid) return;
             grid.innerHTML = '';
             const allPhotos = [...(isFirebaseActive ? firebasePhotos : []), ...localFiles].filter(f => f.isPhoto && f.subprojectId === currentSubprojectId);
 
@@ -1207,7 +1221,7 @@
                 const sizeStr = formatBytes(p.size);
                 const sizeTag = sizeStr ? `<span class="size-tag">${sizeStr}</span>` : '';
                 const photoUrl = p.content || p.url;
-                const safeName = escapeHtml(p.name);
+                const safeName = escapeHtml(p.name || '');
 
                 card.innerHTML = `
                     <img src="${photoUrl}" onclick="window.open('${photoUrl}', '_blank')">
@@ -1233,7 +1247,6 @@
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
         }
 
-        // Soubory a složky
         function createFolder() {
             const name = document.getElementById('folder-name-input').value.trim();
             if (!name || !currentSubprojectId) return;
@@ -1254,11 +1267,13 @@
 
         function renderBreadcrumbs() {
             const container = document.getElementById('folder-breadcrumbs');
+            if (!container) return;
             container.innerHTML = `<span class="breadcrumb-item ${currentFolderId === 'root' ? 'breadcrumb-active' : ''}" onclick="currentFolderId='root'; renderExplorer();"><i class="fa-solid fa-house"></i> Kořenová složka</span>`;
         }
 
         function renderFolderGrid() {
             const grid = document.getElementById('folder-grid');
+            if (!grid) return;
             grid.innerHTML = '';
             const folders = isFirebaseActive ? firebaseFolders : localFolders;
             const sub = folders.filter(f => f.subprojectId === currentSubprojectId && f.parentId === currentFolderId);
@@ -1269,8 +1284,8 @@
                 card.className = 'folder-card';
                 card.onclick = () => { currentFolderId = f.id; renderExplorer(); };
                 card.innerHTML = `
-                    <div class="folder-info"><i class="fa-solid fa-folder"></i><span>${escapeHtml(f.name)}</span></div>
-                    <button class="btn-icon" style="color: var(--danger-color);" onclick="event.stopPropagation(); deleteFolder('${f.id}', '${escapeHtml(f.name)}')"><i class="fa-solid fa-trash"></i></button>
+                    <div class="folder-info"><i class="fa-solid fa-folder"></i><span>${escapeHtml(f.name || '')}</span></div>
+                    <button class="btn-icon" style="color: var(--danger-color);" onclick="event.stopPropagation(); deleteFolder('${f.id}', '${escapeHtml(f.name || '')}')"><i class="fa-solid fa-trash"></i></button>
                 `;
                 grid.appendChild(card);
             });
@@ -1321,6 +1336,7 @@
 
         function renderFiles() {
             const list = document.getElementById('file-list');
+            if (!list) return;
             list.innerHTML = '';
             const allFiles = [...(isFirebaseActive ? firebaseFiles : []), ...localFiles].filter(f => f.subprojectId === currentSubprojectId && (f.folderId || 'root') === currentFolderId && !f.isPhoto);
 
@@ -1332,7 +1348,7 @@
             allFiles.forEach(f => {
                 const li = document.createElement('li');
                 li.className = 'file-item';
-                const safeName = escapeHtml(f.name);
+                const safeName = escapeHtml(f.name || '');
                 const sizeStr = formatBytes(f.size);
                 const sizeTag = sizeStr ? `<span class="size-tag" style="margin-left: 10px;">${sizeStr}</span>` : '';
 
@@ -1358,7 +1374,6 @@
             if (isFirebaseActive) db.collection('files').doc(id).delete();
         }
 
-        // Modaly a správa entit
         function openProjectModal(id = null) {
             document.getElementById('project-edit-id').value = id || '';
             document.getElementById('project-name-input').value = id ? (isFirebaseActive ? firebaseProjects : localProjects).find(p => p.id === id).name : '';
@@ -1491,16 +1506,23 @@
         }
 
         function editCurrentProjectName() { if(currentProjectId) openProjectModal(currentProjectId); }
-        function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+        function escapeHtml(text) { return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
-        // Firebase Realtime sync
+        // Firebase Realtime sync nebo lokální spuštění
         if (isFirebaseActive) {
             db.collection('projects').onSnapshot(snap => {
                 firebaseProjects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
                 renderProjects();
-                if (!currentProjectId && firebaseProjects.length) selectProject(firebaseProjects[0].id);
+                if (!currentProjectId && firebaseProjects.length > 0) {
+                    selectProject(firebaseProjects[0].id);
+                }
+            }, err => {
+                console.error("Firebase chyba:", err);
+                renderProjects();
+                if (localProjects.length > 0) selectProject(localProjects[0].id);
             });
+
             db.collection('subprojects').onSnapshot(snap => {
                 firebaseSubprojects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentProjectId) renderSubprojects();
@@ -1511,7 +1533,7 @@
                 if (currentProjectId && !currentSubprojectId) renderGlobalDeadlines();
             });
             db.collection('photos').onSnapshot(snap => {
-                firebasePhotos = snap.docs.map(snap.doc => ({ id: snap.doc.id, isPhoto: true, ...snap.doc.data() }));
+                firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
                 if (currentSubprojectId) renderPhotos();
             });
             db.collection('folders').onSnapshot(snap => {
@@ -1524,7 +1546,7 @@
             });
         } else {
             renderProjects();
-            selectProject('p1');
+            if (localProjects.length > 0) selectProject(localProjects[0].id);
         }
     </script>
 </body>
