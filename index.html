@@ -485,7 +485,7 @@
                 </div>
             </div>
 
-            <!-- KROK 2: POHLED DETAILU PODPROJEKTU (Pořadí: Úkoly, Návody, Fotky, Kódy & Soubory) -->
+            <!-- KROK 2: POHLED DETAILU PODPROJEKTU -->
             <div id="view-subproject-detail" style="display: none;">
                 <div class="breadcrumb-nav">
                     <span onclick="backToSubprojectsList()"><i class="fa-solid fa-arrow-left"></i> Zpět na podprojekty</span>
@@ -977,15 +977,15 @@
                     <img src="${p.content || p.url}" onclick="window.open('${p.content || p.url}', '_blank')">
                     <div class="photo-footer">
                         <span>${escapeHtml(p.name)}</span>
-                        <button class="btn-icon" style="color: var(--danger-color);" onclick="deletePhoto('${p.id}')"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-icon" style="color: var(--danger-color);" onclick="deletePhoto('${p.id}', '${escapeHtml(p.name)}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
                 grid.appendChild(card);
             });
         }
 
-        function deletePhoto(id) {
-            if (!confirm('Smazat fotku?')) return;
+        function deletePhoto(id, name) {
+            if (!confirm(`Smazat fotku "${name}"?`)) return;
             localFiles = localFiles.filter(f => f.id !== id);
             renderPhotos();
             if (isFirebaseActive) db.collection('photos').doc(id).delete();
@@ -1028,14 +1028,14 @@
                 card.onclick = () => { currentFolderId = f.id; renderExplorer(); };
                 card.innerHTML = `
                     <div class="folder-info"><i class="fa-solid fa-folder"></i><span>${escapeHtml(f.name)}</span></div>
-                    <button class="btn-icon" style="color: var(--danger-color);" onclick="event.stopPropagation(); deleteFolder('${f.id}')"><i class="fa-solid fa-trash"></i></button>
+                    <button class="btn-icon" style="color: var(--danger-color);" onclick="event.stopPropagation(); deleteFolder('${f.id}', '${escapeHtml(f.name)}')"><i class="fa-solid fa-trash"></i></button>
                 `;
                 grid.appendChild(card);
             });
         }
 
-        function deleteFolder(id) {
-            if (!confirm('Smazat složku?')) return;
+        function deleteFolder(id, name) {
+            if (!confirm(`Smazat složku "${name}"?`)) return;
             if (isFirebaseActive) db.collection('folders').doc(id).delete();
             else {
                 localFolders = localFolders.filter(f => f.id !== id);
@@ -1094,15 +1094,15 @@
                     <span><i class="fa-solid fa-file" style="color: var(--accent-color);"></i> ${escapeHtml(f.name)}</span>
                     <div>
                         <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.open('${f.content}', '_blank')"><i class="fa-solid fa-download"></i> Stáhnout</button>
-                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteFile('${f.id}')"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteFile('${f.id}', '${escapeHtml(f.name)}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
                 list.appendChild(li);
             });
         }
 
-        function deleteFile(id) {
-            if (!confirm('Smazat soubor?')) return;
+        function deleteFile(id, name) {
+            if (!confirm(`Smazat soubor "${name}"?`)) return;
             localFiles = localFiles.filter(f => f.id !== id);
             renderExplorer();
             if (isFirebaseActive) db.collection('files').doc(id).delete();
@@ -1159,7 +1159,12 @@
         }
 
         function deleteSubproject(id) {
-            if (!confirm('Smazat podprojekt?')) return;
+            let subs = isFirebaseActive ? firebaseSubprojects : localSubprojects;
+            let sub = subs.find(s => s.id === id);
+            const name = sub ? sub.name : 'podprojekt';
+
+            if (!confirm(`Smazat podprojekt "${name}"?`)) return;
+
             if (isFirebaseActive) db.collection('subprojects').doc(id).delete();
             else { localSubprojects = localSubprojects.filter(s => s.id !== id); renderSubprojects(); }
         }
@@ -1190,7 +1195,12 @@
         }
 
         function deleteTask(id) {
-            if (!confirm('Smazat úkol?')) return;
+            let tasks = isFirebaseActive ? firebaseTasks : localTasks;
+            let task = tasks.find(t => t.id === id);
+            const title = task ? task.title : 'úkol';
+
+            if (!confirm(`Smazat úkol "${title}"?`)) return;
+
             if (isFirebaseActive) db.collection('tasks').doc(id).delete();
             else { localTasks = localTasks.filter(t => t.id !== id); renderTasks(); }
         }
@@ -1208,9 +1218,14 @@
         }
 
         function deleteCurrentProject() {
-            if (!confirm('Smazat celý hlavní projekt?')) return;
+            let projects = isFirebaseActive ? firebaseProjects : localProjects;
+            let p = projects.find(x => x.id === currentProjectId);
+            const name = p ? p.name : 'projekt';
+
+            if (!confirm(`Smazat celý projekt "${name}" včetně všech podprojektů a dat?`)) return;
+
             if (isFirebaseActive) db.collection('projects').doc(currentProjectId).delete();
-            else { localProjects = localProjects.filter(p => p.id !== currentProjectId); }
+            else { localProjects = localProjects.filter(item => item.id !== currentProjectId); }
             currentProjectId = null;
             renderProjects();
             document.getElementById('current-project-title').innerText = 'Vyberte projekt';
