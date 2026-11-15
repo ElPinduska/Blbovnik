@@ -371,7 +371,7 @@
         .photo-card img { width: 100%; height: 140px; object-fit: cover; cursor: pointer; }
         .photo-footer { padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
         .photo-info-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .photo-size-tag { font-size: 0.75rem; color: var(--accent-color); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; }
+        .size-tag { font-size: 0.75rem; color: var(--accent-color); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; }
 
         /* Rich Text Editor */
         .editor-container-wrapper {
@@ -1039,11 +1039,9 @@
                 const originalDataUrl = e.target.result;
 
                 if (!resizeChoice) {
-                    // Původní soubor bez jakékoliv změny – zachová přesný formát (PNG/JPG) i přesnou velikost
                     const base64Content = originalDataUrl.split(',')[1];
                     sendPhotoToGitHub(base64Content, userChoiceName, file.size, token);
                 } else {
-                    // Zmenšení přes canvas
                     const img = new Image();
                     img.src = originalDataUrl;
                     img.onload = function() {
@@ -1095,7 +1093,7 @@
                 const card = document.createElement('div');
                 card.className = 'photo-card';
                 const sizeStr = formatBytes(p.size);
-                const sizeTag = sizeStr ? `<span class="photo-size-tag">${sizeStr}</span>` : '';
+                const sizeTag = sizeStr ? `<span class="size-tag">${sizeStr}</span>` : '';
                 const photoUrl = p.content || p.url;
                 const safeName = escapeHtml(p.name);
 
@@ -1197,9 +1195,9 @@
                 }).then(res => res.json()).then(data => {
                     const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
                     if (isFirebaseActive) {
-                        db.collection('files').add({ subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, content: downloadUrl });
+                        db.collection('files').add({ subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, content: downloadUrl, size: file.size });
                     } else {
-                        localFiles.push({ id: 'f_' + Date.now(), subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, content: downloadUrl });
+                        localFiles.push({ id: 'f_' + Date.now(), subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, content: downloadUrl, size: file.size });
                         renderExplorer();
                     }
                     alert('Soubor nahrán!');
@@ -1223,8 +1221,14 @@
                 const li = document.createElement('li');
                 li.className = 'file-item';
                 const safeName = escapeHtml(f.name);
+                const sizeStr = formatBytes(f.size);
+                const sizeTag = sizeStr ? `<span class="size-tag" style="margin-left: 10px;">${sizeStr}</span>` : '';
+
                 li.innerHTML = `
-                    <span><i class="fa-solid fa-file" style="color: var(--accent-color);"></i> ${safeName}</span>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
+                        <span><i class="fa-solid fa-file" style="color: var(--accent-color); margin-right: 6px;"></i> ${safeName}</span>
+                        ${sizeTag}
+                    </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="previewFile('${f.content}', '${safeName}')"><i class="fa-solid fa-eye"></i> Náhled</button>
                         <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="downloadCleanFile('${f.content}', '${safeName}')"><i class="fa-solid fa-download"></i> Stáhnout</button>
