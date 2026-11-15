@@ -295,7 +295,6 @@
         .deadline-item.orange { border-left: 4px solid #f97316; background: rgba(249, 115, 22, 0.12); }
         .deadline-item.red { border-left: 4px solid var(--danger-color); background: rgba(239, 68, 68, 0.12); }
 
-        /* Klikací cesta v přehledu termínů */
         .deadline-path-link {
             color: var(--accent-color);
             cursor: pointer;
@@ -335,7 +334,6 @@
             display: flex; gap: 10px; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--card-border); flex-wrap: wrap;
         }
 
-        /* Grid karet pro podprojekty */
         .subproject-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -359,7 +357,6 @@
         .subproject-card.dragging { opacity: 0.4; }
         .subproject-card:hover { border-color: var(--accent-color); }
 
-        /* Úkoly – kachličky */
         .task-card {
             background-color: #0f172a;
             border: 1px solid var(--card-border);
@@ -406,7 +403,6 @@
         .badge-date.orange { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
         .badge-date.red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
-        /* Fotky Grid */
         .photo-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -425,7 +421,6 @@
         .photo-info-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .size-tag { font-size: 0.75rem; color: var(--accent-color); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; }
 
-        /* Rich Text Editor */
         .editor-container-wrapper {
             background-color: #0f172a; border-radius: 10px; border: 1px solid var(--card-border); overflow: hidden;
         }
@@ -435,7 +430,6 @@
         .ql-snow .ql-picker { color: var(--text-primary) !important; }
         #editor { min-height: 300px; color: var(--text-primary); font-size: 1rem; border: none !important; }
 
-        /* Soubory & Složky */
         .folder-breadcrumbs {
             display: flex; align-items: center; gap: 8px; background-color: #0f172a; border: 1px solid var(--card-border); padding: 10px 16px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem; flex-wrap: wrap;
         }
@@ -461,7 +455,6 @@
             background-color: #0f172a; border: 1px solid var(--card-border); padding: 14px 18px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
         }
 
-        /* Modaly */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); align-items: center; justify-content: center; z-index: 100;
         }
@@ -502,7 +495,6 @@
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- Speciální rychlá záložka pro všechny termíny -->
         <div class="project-section-title"><span>Přehled</span></div>
         <ul class="project-list" style="max-height: none;">
             <li class="project-item" id="sidebar-all-deadlines-item" onclick="selectGlobalAllDeadlines()">
@@ -543,7 +535,6 @@
                 <div><strong>Pozor:</strong> Běží v lokálním režimu.</div>
             </div>
 
-            <!-- Lišta hlavního projektu -->
             <div class="project-actions-bar" id="project-actions-bar" style="display: none;">
                 <button class="btn btn-secondary" onclick="editCurrentProjectName()">
                     <i class="fa-solid fa-pen-to-square"></i> Upravit projekt
@@ -561,7 +552,7 @@
                 <div class="project-section">
                     <h2><i class="fa-solid fa-calendar-days" style="color: var(--warning-color);"></i> Všechny termíny ze všech projektů</h2>
                     <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem;">
-                        Zde vidíte kompletní přehled všech naplánovaných termínů. Kliknutím na cestu u úkolu přejdete přímo do daného podprojektu.
+                        Zde vidíte kompletní přehled všech naplánovaných termínů[cite: 11]. Kliknutím na cestu u úkolu přejdete přímo do daného podprojektu[cite: 11].
                     </p>
                     <div class="deadline-list" id="global-all-deadlines-container"></div>
                 </div>
@@ -569,7 +560,6 @@
 
             <!-- KROK 1: POHLED SEZNAMU PODPROJEKTŮ -->
             <div id="view-subprojects-list" style="display: none;">
-                <!-- Upozornění na blížící se termíny v aktuálním projektu -->
                 <div class="deadline-alert-box" id="global-deadline-box" style="display: none;">
                     <div class="deadline-alert-title"><i class="fa-solid fa-bell" style="color: var(--warning-color);"></i> Blížící se termíny v tomto projektu</div>
                     <div class="deadline-list" id="global-deadline-list"></div>
@@ -594,7 +584,6 @@
                     <strong id="active-subproject-breadcrumb-name" style="color: var(--text-primary);">Název podprojektu</strong>
                 </div>
 
-                <!-- 1. ÚKOLY -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-list-check" style="color: var(--accent-color);"></i> Úkoly & Termíny</h2>
@@ -605,7 +594,6 @@
                     <div id="tasks-container"></div>
                 </section>
 
-                <!-- 2. NÁVODY & POZNÁMKY -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-file-lines" style="color: var(--success-color);"></i> Návody & Poznámky</h2>
@@ -618,7 +606,6 @@
                     </div>
                 </section>
 
-                <!-- 3. FOTKY -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
@@ -630,7 +617,6 @@
                     <div class="photo-grid" id="photo-grid"></div>
                 </section>
 
-                <!-- 4. KÓDY & SOUBORY -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                         <h2><i class="fa-solid fa-code" style="color: var(--folder-color);"></i> Kódy & Soubory</h2>
@@ -743,6 +729,25 @@
         </div>
     </div>
 
+    <!-- Modal pro přesun souboru / složky -->
+    <div class="modal" id="modal-move">
+        <div class="modal-content">
+            <div class="modal-header">Přesunout položku</div>
+            <input type="hidden" id="move-item-id">
+            <input type="hidden" id="move-item-type">
+            <div class="form-group">
+                <label>Vyberte cílovou složku:</label>
+                <select id="move-target-folder-select" class="form-control">
+                    <option value="root">📁 Kořenová složka</option>
+                </select>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-secondary" onclick="closeModal('modal-move')">Zrušit</button>
+                <button class="btn btn-primary" onclick="executeMoveItem()">Přesunout</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const GITHUB_CONFIG = { owner: "ElPinduska", repo: "Blbovnik-ulozene_soubory", branch: "main" };
 
@@ -798,7 +803,6 @@
             modules: { syntax: true, toolbar: [['bold', 'italic', 'underline'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], ['code-block'], ['clean']] }
         });
 
-        // Startujeme přímo v globálním přehledu termínů
         let currentProjectId = 'ALL_DEADLINES';
         let currentSubprojectId = null;
         let currentFolderId = 'root';
@@ -1270,9 +1274,9 @@
             }).then(res => res.json()).then(data => {
                 const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
                 if (isFirebaseActive) {
-                    db.collection('photos').add({ subprojectId: currentSubprojectId, name: userChoiceName, url: downloadUrl, size: exactBytes });
+                    db.collection('photos').add({ subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, url: downloadUrl, size: exactBytes });
                 } else {
-                    localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, isPhoto: true, name: userChoiceName, content: downloadUrl, size: exactBytes });
+                    localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, folderId: currentFolderId, isPhoto: true, name: userChoiceName, content: downloadUrl, size: exactBytes });
                     renderPhotos();
                 }
                 alert('Fotka nahrána!');
@@ -1340,10 +1344,10 @@
             const grid = document.getElementById('photo-grid');
             if (!grid) return;
             grid.innerHTML = '';
-            const allPhotos = [...(isFirebaseActive ? firebasePhotos : []), ...localFiles].filter(f => f.isPhoto && f.subprojectId === currentSubprojectId);
+            const allPhotos = [...(isFirebaseActive ? firebasePhotos : []), ...localFiles].filter(f => f.isPhoto && f.subprojectId === currentSubprojectId && (f.folderId || 'root') === currentFolderId);
 
             if (allPhotos.length === 0) {
-                grid.innerHTML = '<p style="color: var(--text-secondary); grid-column: 1/-1;">Zatím žádné fotky.</p>';
+                grid.innerHTML = '<p style="color: var(--text-secondary); grid-column: 1/-1;">Zatím žádné fotky v této složce.</p>';
                 return;
             }
 
@@ -1363,8 +1367,9 @@
                             ${sizeTag}
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                            <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="downloadCleanFile('${photoUrl}', '${safeName}')"><i class="fa-solid fa-download"></i> Stáhnout</button>
-                            <button class="btn-icon" style="color: var(--danger-color); padding: 2px 6px;" onclick="deletePhoto('${p.id}', '${safeName}')"><i class="fa-solid fa-trash"></i></button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" onclick="downloadCleanFile('${photoUrl}', '${safeName}')"><i class="fa-solid fa-download"></i></button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" onclick="openMoveModal('${p.id}', 'photo', '${safeName}')" title="Přesunout"><i class="fa-solid fa-folder-tree"></i></button>
+                            <button class="btn-icon" style="color: var(--danger-color); padding: 2px 4px;" onclick="deletePhoto('${p.id}', '${safeName}')"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
                 `;
@@ -1395,6 +1400,7 @@
             renderBreadcrumbs();
             renderFolderGrid();
             renderFiles();
+            renderPhotos();
         }
 
         function renderBreadcrumbs() {
@@ -1417,7 +1423,10 @@
                 card.onclick = () => { currentFolderId = f.id; renderExplorer(); };
                 card.innerHTML = `
                     <div class="folder-info"><i class="fa-solid fa-folder"></i><span>${escapeHtml(f.name || '')}</span></div>
-                    <button class="btn-icon" style="color: var(--danger-color);" onclick="event.stopPropagation(); deleteFolder('${f.id}', '${escapeHtml(f.name || '')}')"><i class="fa-solid fa-trash"></i></button>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn-icon" title="Přesunout složku" onclick="event.stopPropagation(); openMoveModal('${f.id}', 'folder', '${escapeHtml(f.name || '')}')"><i class="fa-solid fa-folder-tree"></i></button>
+                        <button class="btn-icon" style="color: var(--danger-color);" title="Smazat" onclick="event.stopPropagation(); deleteFolder('${f.id}', '${escapeHtml(f.name || '')}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
                 `;
                 grid.appendChild(card);
             });
@@ -1491,7 +1500,8 @@
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="previewFile('${f.content}', '${safeName}')"><i class="fa-solid fa-eye"></i> Náhled</button>
-                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="downloadCleanFile('${f.content}', '${safeName}')"><i class="fa-solid fa-download"></i> Stáhnout</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="downloadCleanFile('${f.content}', '${safeName}')"><i class="fa-solid fa-download"></i> Stáhnout</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="openMoveModal('${f.id}', 'file', '${safeName}')"><i class="fa-solid fa-folder-tree"></i> Přesunout</button>
                         <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteFile('${f.id}', '${safeName}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
@@ -1505,6 +1515,60 @@
             renderExplorer();
             if (isFirebaseActive) db.collection('files').doc(id).delete();
         }
+
+        // --- FUNKCE PRO PŘESUN POLOŽEK ---
+        function openMoveModal(itemId, itemType, itemName) {
+            document.getElementById('move-item-id').value = itemId;
+            document.getElementById('move-item-type').value = itemType;
+
+            const select = document.getElementById('move-target-folder-select');
+            select.innerHTML = '<option value="root">📁 Kořenová složka</option>';
+
+            const folders = isFirebaseActive ? firebaseFolders : localFolders;
+            const subFolders = folders.filter(f => f.subprojectId === currentSubprojectId);
+
+            subFolders.forEach(f => {
+                // Zamezení přesunu složky sama do sebe
+                if (itemType === 'folder' && f.id === itemId) return;
+                const opt = document.createElement('option');
+                opt.value = f.id;
+                opt.text = `📁 ${f.name}`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('modal-move').style.display = 'flex';
+        }
+
+        function executeMoveItem() {
+            const itemId = document.getElementById('move-item-id').value;
+            const itemType = document.getElementById('move-item-type').value;
+            const targetFolderId = document.getElementById('move-target-folder-select').value;
+
+            if (isFirebaseActive) {
+                let collectionName = 'files';
+                if (itemType === 'folder') collectionName = 'folders';
+                if (itemType === 'photo') collectionName = 'photos';
+
+                db.collection(collectionName).doc(itemId).update({ folderId: targetFolderId })
+                    .then(() => {
+                        closeModal('modal-move');
+                        alert('Položka byla úspěšně přesunuta!');
+                    })
+                    .catch(err => alert('Chyba při přesunu: ' + err.message));
+            } else {
+                if (itemType === 'folder') {
+                    let f = localFolders.find(x => x.id === itemId);
+                    if (f) f.parentId = targetFolderId;
+                } else {
+                    let f = localFiles.find(x => x.id === itemId);
+                    if (f) f.folderId = targetFolderId;
+                }
+                closeModal('modal-move');
+                renderExplorer();
+                alert('Položka byla úspěšně přesunuta!');
+            }
+        }
+        // ---------------------------------
 
         function openProjectModal(id = null) {
             document.getElementById('project-edit-id').value = id || '';
@@ -1639,18 +1703,14 @@
         function editCurrentProjectName() { if(currentProjectId && currentProjectId !== 'ALL_DEADLINES') openProjectModal(currentProjectId); }
         function escapeHtml(text) { return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
-        // Okamžité vykreslení mezipaměti při startu (nečeká se na pomalou síť)
         renderProjects();
         renderGlobalAllDeadlinesView();
 
-        // Firebase Realtime sync
         if (isFirebaseActive) {
             db.collection('projects').onSnapshot(snap => {
                 firebaseProjects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
                 renderProjects();
-            }, err => {
-                console.error("Firebase chyba:", err);
             });
 
             db.collection('subprojects').onSnapshot(snap => {
