@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blbovník</title>
-
-    <!-- Ikona aplikace pro plochu telefonu a prohlížeč -->
-<link rel="icon" type="image/jpeg" href="https://github.com/ElPinduska/Blbovnik-ulozene_soubory/blob/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
-<link rel="apple-touch-icon" href="https://github.com/ElPinduska/Blbovnik-ulozene_soubory/blob/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
     
+    <!-- Ikona aplikace (Mozek s červeným otazníkem) -->
+    <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
+
     <!-- Google Fonts & Font Awesome Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -784,9 +784,7 @@
         let firebasePhotos = [];
         let localFiles = [];
 
-     try {
-            // Pokud chceme vynutit stahování čerstvých dat ze serveru a předejít staré cache z jiného zařízení:
-            // (Cache smažeme, pokud uplynulo víc než 6 hodin od posledního použití, nebo ji načteme jen jako zálohu)
+        try {
             firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
             firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
             firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
@@ -1534,7 +1532,6 @@
             const subFolders = folders.filter(f => f.subprojectId === currentSubprojectId);
 
             subFolders.forEach(f => {
-                // Zamezení přesunu složky sama do sebe
                 if (itemType === 'folder' && f.id === itemId) return;
                 const opt = document.createElement('option');
                 opt.value = f.id;
@@ -1743,7 +1740,7 @@
                 if (currentSubprojectId) renderExplorer();
             });
 
-            db.collection('files').onSnapshot(snap => {
+            db.collection('files').onSnapshot(pages => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderExplorer();
             });
