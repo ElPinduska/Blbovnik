@@ -1312,33 +1312,81 @@
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
-        function sendPhotoToGitHub(base64Content, userChoiceName, exactBytes, token) {
-            const filePath = `photos/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
-            fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
+        function sendPhotoToGitHub(base64Content, userChoiceName, exactBytes, token, subprojectId, folderId) {
+            const cleanName = (userChoiceName || 'fotka').trim().replace(/[\\/:*?"<>|]/g, '_');
+            const filePath = `photos/subproject_${subprojectId}/${Date.now()}_${cleanName}`;
+            const encodedPath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+            const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath.split('/').map(part => encodeURIComponent(part)).join('/')}`;
+
+            return fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`, {
                 method: 'PUT',
-                headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'Upload photo via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
-            }).then(res => res.json()).then(data => {
-                const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
-                if (isFirebaseActive) {
-                    db.collection('photos').add({ subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, url: downloadUrl, size: exactBytes });
-                } else {
-                    localFiles.push({ id: 'ph_' + Date.now(), subprojectId: currentSubprojectId, folderId: currentFolderId, isPhoto: true, name: userChoiceName, content: downloadUrl, size: exactBytes });
-                    renderPhotos();
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: 'Upload photo via Blbovnik',
+                    content: base64Content,
+                    branch: GITHUB_CONFIG.branch
+                })
+            }).then(async response => {
+                let data = {};
+                try { data = await response.json(); } catch (e) { /* odpověď nebyla JSON */ }
+
+                if (!response.ok) {
+                    const detail = data && data.message ? data.message : `HTTP ${response.status}`;
+                    throw new Error(`GitHub odmítl fotografii (${response.status}): ${detail}`);
                 }
-                alert('Fotka nahrána!');
+
+                if (!data.content || !data.content.path) {
+                    throw new Error('GitHub nepotvrdil uložení fotografie.');
+                }
+
+                if (isFirebaseActive) {
+                    await db.collection('photos').add({
+                        subprojectId: subprojectId,
+                        folderId: folderId,
+                        name: cleanName,
+                        url: downloadUrl,
+                        size: exactBytes
+                    });
+                } else {
+                    localFiles.push({
+                        id: 'ph_' + Date.now(),
+                        subprojectId: subprojectId,
+                        folderId: folderId,
+                        isPhoto: true,
+                        name: cleanName,
+                        content: downloadUrl,
+                        size: exactBytes
+                    });
+                    if (currentSubprojectId === subprojectId && currentFolderId === folderId) renderPhotos();
+                }
+
+                alert('Fotka byla úspěšně nahrána!');
             }).catch(err => {
-                alert('Chyba při odesílání na GitHub: ' + err.message);
+                console.error('Chyba při nahrávání fotky:', err);
+                alert('Fotku se nepodařilo nahrát.\n\n' + (err && err.message ? err.message : err));
             });
         }
 
         function uploadPhoto(event) {
-            const file = event.target.files[0];
-            if (!file || !currentSubprojectId) return;
+            const input = event.target;
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            const subprojectId = currentSubprojectId;
+            const folderId = currentFolderId;
+            if (!subprojectId) {
+                input.value = '';
+                alert('Nejdříve otevřete podprojekt.');
+                return;
+            }
 
             const userChoiceName = prompt('Název fotky:', file.name);
-            if (!userChoiceName) {
-                event.target.value = '';
+            if (!userChoiceName || !userChoiceName.trim()) {
+                input.value = '';
                 return;
             }
 
@@ -1346,56 +1394,91 @@
 
             const token = getGitHubToken();
             if (!token) {
-                event.target.value = '';
-                return alert('Chybí GitHub token!');
+                input.value = '';
+                alert('Chybí GitHub token!');
+                return;
             }
 
+            // Na některých mobilech může okamžité vymazání inputu přerušit čtení souboru.
+            // Input proto vymažeme až po dokončení FileReaderu.
             const reader = new FileReader();
             reader.onload = function(e) {
-                const originalDataUrl = e.target.result;
+                input.value = '';
+                try {
+                    const originalDataUrl = e.target.result;
+                    if (typeof originalDataUrl !== 'string' || !originalDataUrl.includes(',')) {
+                        throw new Error('Prohlížeč nepředal obsah fotografie.');
+                    }
 
-                if (!resizeChoice) {
-                    const base64Content = originalDataUrl.split(',')[1];
-                    sendPhotoToGitHub(base64Content, userChoiceName, file.size, token);
-                } else {
-                    const img = new Image();
-                    img.src = originalDataUrl;
-                    img.onload = function() {
-                        let canvas = document.createElement('canvas');
-                        let ctx = canvas.getContext('2d');
-                        let width = img.width;
-                        let height = img.height;
+                    if (!resizeChoice) {
+                        const base64Content = originalDataUrl.split(',')[1];
+                        if (!base64Content) throw new Error('Fotografie je prázdná nebo ji nelze přečíst.');
+                        sendPhotoToGitHub(base64Content, userChoiceName, file.size, token, subprojectId, folderId);
+                    } else {
+                        const img = new Image();
+                        img.onload = function() {
+                            try {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                if (!ctx) throw new Error('Prohlížeč nedokázal připravit zmenšení fotografie.');
 
-                        const MAX_WIDTH = 1920;
-                        const MAX_HEIGHT = 1080;
-                        if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width;
-                                width = MAX_WIDTH;
+                                let width = img.naturalWidth || img.width;
+                                let height = img.naturalHeight || img.height;
+                                if (!width || !height) throw new Error('Fotografie má neplatné rozměry.');
+
+                                const MAX_WIDTH = 1920;
+                                const MAX_HEIGHT = 1080;
+                                const scale = Math.min(1, MAX_WIDTH / width, MAX_HEIGHT / height);
+                                width = Math.max(1, Math.round(width * scale));
+                                height = Math.max(1, Math.round(height * scale));
+
+                                canvas.width = width;
+                                canvas.height = height;
+                                ctx.drawImage(img, 0, 0, width, height);
+
+                                const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                                const base64Content = resizedDataUrl.split(',')[1];
+                                if (!base64Content) throw new Error('Zmenšenou fotografii se nepodařilo vytvořit.');
+
+                                const estimatedBytes = Math.round((base64Content.length * 3) / 4);
+                                let resizedName = userChoiceName.trim();
+                                if (!/\.jpe?g$/i.test(resizedName)) {
+                                    resizedName = resizedName.replace(/\.[^.]+$/, '') + '.jpg';
+                                }
+                                sendPhotoToGitHub(base64Content, resizedName, estimatedBytes, token, subprojectId, folderId);
+                            } catch (err) {
+                                console.error('Chyba při zmenšování fotografie:', err);
+                                alert('Fotografii se nepodařilo zpracovat: ' + err.message);
                             }
-                        } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height;
-                                height = MAX_HEIGHT;
-                            }
-                        }
-
-                        canvas.width = width;
-                        canvas.height = height;
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                        const base64Content = resizedDataUrl.split(',')[1];
-                        const estimatedBytes = Math.round((base64Content.length * 3) / 4);
-                        sendPhotoToGitHub(base64Content, userChoiceName, estimatedBytes, token);
-                    };
-                    img.onerror = function() {
-                        alert('Nepodařilo se zpracovat obrázek.');
-                    };
+                        };
+                        img.onerror = function() {
+                            alert('Prohlížeč nedokázal otevřít tento formát fotografie. Zkuste ji nahrát bez zmenšení nebo jako JPG.');
+                        };
+                        img.src = originalDataUrl;
+                    }
+                } catch (err) {
+                    console.error('Chyba při čtení fotografie:', err);
+                    alert('Fotografii se nepodařilo připravit k nahrání: ' + err.message);
                 }
             };
-            reader.readAsDataURL(file);
-            event.target.value = '';
+            reader.onerror = function() {
+                input.value = '';
+                const detail = reader.error && reader.error.message ? reader.error.message : 'neznámá chyba';
+                console.error('FileReader chyba:', reader.error);
+                alert('Mobilní prohlížeč nedokázal přečíst vybranou fotografii: ' + detail);
+            };
+            reader.onabort = function() {
+                input.value = '';
+                alert('Čtení fotografie bylo přerušeno. Zkuste ji vybrat znovu.');
+            };
+
+            try {
+                reader.readAsDataURL(file);
+            } catch (err) {
+                input.value = '';
+                console.error('Nelze spustit čtení fotografie:', err);
+                alert('Fotografii se nepodařilo otevřít: ' + err.message);
+            }
         }
 
         function renderPhotos() {
