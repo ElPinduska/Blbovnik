@@ -902,9 +902,8 @@
             const lowerName = (fileName || '').toLowerCase();
             let targetUrl = url;
 
-            // Pro PDF soubory použijeme Google Docs Viewer. Díky tomu se PDF
-            // na mobilu otevře přímo v prohlížeči jako náhled bez stahování do úložiště.
-            if (lowerName.endsWith('.pdf')) {
+            // Pro PDF, PPTX a PPT použijeme Google Docs Viewer – otevře se online náhled bez stahování do telefonu
+            if (lowerName.endsWith('.pdf') || lowerName.endsWith('.pptx') || lowerName.endsWith('.ppt')) {
                 targetUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
             }
 
@@ -1883,10 +1882,6 @@
                 if (isFirebaseActive) db.collection('projects').doc(currentProjectId).update({ archived: p.archived });
                 selectProject(currentProjectId);
             }
-        }
-
-        function deleteCustomerProject() {
-            // zachováno
         }
 
         function deleteCurrentProject() {
