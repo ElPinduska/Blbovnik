@@ -624,13 +624,13 @@
                     </div>
                 </section>
 
-                <!-- SEKCE FOTEK S JISTÝM JS SPOUŠTĚČEM PRO MOBIL I PC -->
+                <!-- SEKCE FOTEK S NATIVNÍM LABEL PROPOJENÍM PRO MOBIL I PC -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
-                        <button type="button" class="btn btn-primary" onclick="document.getElementById('photo-input').click()">
+                        <label for="photo-input" class="btn btn-primary" style="cursor: pointer; margin: 0; display: inline-flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-camera"></i> Nahrát fotku
-                        </button>
+                        </label>
                         <input type="file" id="photo-input" accept="image/*" style="display: none;" onclick="this.value=null" onchange="uploadPhoto(event)">
                     </div>
                     <div class="photo-grid" id="photo-grid"></div>
@@ -643,9 +643,9 @@
                             <button class="btn btn-secondary" onclick="openFolderModal()">
                                 <i class="fa-solid fa-folder-plus" style="color: var(--folder-color);"></i> Nová složka
                             </button>
-                            <button type="button" class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                            <label for="file-input" class="btn btn-primary" style="cursor: pointer; margin: 0; display: inline-flex; align-items: center; gap: 8px;">
                                 <i class="fa-solid fa-upload"></i> Nahrát soubor
-                            </button>
+                            </label>
                             <input type="file" id="file-input" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
                         </div>
                     </div>
@@ -653,11 +653,11 @@
                     <div class="folder-breadcrumbs" id="folder-breadcrumbs"></div>
                     <div class="folder-grid" id="folder-grid"></div>
 
-                    <div class="upload-area" onclick="document.getElementById('file-input-drag').click()">
+                    <label for="file-input-drag" class="upload-area" style="display: block; cursor: pointer;">
                         <i class="fa-solid fa-file-arrow-up fa-2x" style="color: var(--accent-color); margin-bottom: 10px;"></i>
                         <p>Klikněte pro nahrání souborů a kódů (podporuje složky a podadresáře)</p>
-                        <input type="file" id="file-input-drag" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
-                    </div>
+                    </label>
+                    <input type="file" id="file-input-drag" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
 
                     <ul class="file-list" id="file-list"></ul>
                 </section>
@@ -800,11 +800,14 @@
         let firebasePhotos = [];
         let localFiles = [];
 
+        // Okamžité načtení všech dat z lokální mezipaměti při startu (zabraňuje 30s výpadku)
         try {
             firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
             firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
             firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
             firebaseFolders = JSON.parse(localStorage.getItem('cache_folders') || '[]');
+            firebaseFiles = JSON.parse(localStorage.getItem('cache_files') || '[]');
+            firebasePhotos = JSON.parse(localStorage.getItem('cache_photos') || '[]');
             localFiles = JSON.parse(localStorage.getItem('cache_local_files') || '[]');
         } catch(e) {
             console.error("Chyba při parsování localStorage:", e);
@@ -1020,7 +1023,6 @@
 
             sortedTasks.forEach(item => {
                 const isHighPriority = item.task.priority === 'p1';
-                // Vysoká priorita (p1) má přednost ve vizuálním zvýraznění (červený styl, badge)
                 const itemClass = isHighPriority ? 'deadline-item red priority-p1' : `deadline-item ${item.eval.status}`;
                 const priorityBadge = isHighPriority ? `<span class="badge badge-p1" style="margin-right: 8px;">Vysoká</span>` : '';
                 const titleStyle = isHighPriority ? 'font-size: 1rem; font-weight: 700; color: #ffffff;' : 'font-size: 1rem;';
@@ -1755,6 +1757,7 @@
         function editCurrentProjectName() { if(currentProjectId && currentProjectId !== 'ALL_DEADLINES') openProjectModal(currentProjectId); }
         function escapeHtml(text) { return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
+        // Okamžité vykreslení z lokální mezipaměti při startu
         renderProjects();
         renderGlobalAllDeadlinesView();
 
@@ -1780,6 +1783,7 @@
 
             db.collection('photos').onSnapshot(snap => {
                 firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
+                localStorage.setItem('cache_photos', JSON.stringify(firebasePhotos));
                 if (currentSubprojectId) renderPhotos();
             });
 
@@ -1791,6 +1795,7 @@
 
             db.collection('files').onSnapshot(snap => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localStorage.setItem('cache_files', JSON.stringify(firebaseFiles));
                 if (currentSubprojectId) renderExplorer();
             });
         }
