@@ -1589,44 +1589,92 @@
             }
         }
 
-        function uploadFile(event) {
-            const file = event.target.files[0];
+        async function uploadFile(event) {
+            const input = event.target;
+            const file = input.files && input.files[0];
             if (!file || !currentSubprojectId) return;
+
+            // Zachováme cílový podprojekt a složku i v případě, že uživatel
+            // během nahrávání přejde do jiné části aplikace.
+            const targetSubprojectId = currentSubprojectId;
+            const targetFolderId = currentFolderId;
+
             const userChoiceName = prompt('Název souboru:', file.name);
             if (!userChoiceName) {
-                event.target.value = '';
+                input.value = '';
                 return;
             }
 
             const token = getGitHubToken();
             if (!token) {
-                event.target.value = '';
-                return alert('Chybí GitHub token!');
+                input.value = '';
+                alert('Chybí GitHub token!');
+                return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const fullDataUrl = e.target.result;
-                const base64Content = fullDataUrl.split(',')[1];
-                const filePath = `uploads/subproject_${currentSubprojectId}/${Date.now()}_${userChoiceName}`;
-
-                fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: 'Upload via Blbovnik', content: base64Content, branch: GITHUB_CONFIG.branch })
-                }).then(res => res.json()).then(data => {
-                    const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
-                    if (isFirebaseActive) {
-                        db.collection('files').add({ subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, content: downloadUrl, size: file.size });
-                    } else {
-                        localFiles.push({ id: 'f_' + Date.now(), subprojectId: currentSubprojectId, folderId: currentFolderId, name: userChoiceName, content: downloadUrl, size: file.size });
-                        renderExplorer();
-                    }
-                    alert('Soubor nahrán!');
+            try {
+                // Nejdříve spolehlivě načteme vybraný soubor.
+                const fullDataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Prohlížeč nedokázal přečíst vybraný soubor.'));
+                    reader.onabort = () => reject(new Error('Načítání souboru bylo přerušeno.'));
+                    reader.readAsDataURL(file);
                 });
-            };
-            reader.readAsDataURL(file);
-            event.target.value = '';
+
+                const base64Content = String(fullDataUrl).split(',')[1];
+                if (!base64Content) throw new Error('Soubor se nepodařilo připravit k odeslání.');
+
+                const filePath = `uploads/subproject_${targetSubprojectId}/${Date.now()}_${userChoiceName}`;
+                const githubResponse = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: 'Upload via Blbovnik',
+                        content: base64Content,
+                        branch: GITHUB_CONFIG.branch
+                    })
+                });
+
+                const githubData = await githubResponse.json().catch(() => ({}));
+                if (!githubResponse.ok) {
+                    throw new Error(githubData.message || `GitHub odmítl soubor (HTTP ${githubResponse.status}).`);
+                }
+
+                const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${filePath}`;
+                const fileRecord = {
+                    subprojectId: targetSubprojectId,
+                    folderId: targetFolderId,
+                    name: userChoiceName,
+                    content: downloadUrl,
+                    size: file.size
+                };
+
+                if (isFirebaseActive) {
+                    // Počkáme na potvrzení Firestore a ihned aktualizujeme
+                    // lokální seznam. Nečekáme na opožděný onSnapshot.
+                    const docRef = await db.collection('files').add(fileRecord);
+                    const savedRecord = { id: docRef.id, ...fileRecord };
+                    if (!firebaseFiles.some(item => item.id === docRef.id)) {
+                        firebaseFiles.push(savedRecord);
+                    }
+                    localStorage.setItem('cache_files', JSON.stringify(firebaseFiles));
+                } else {
+                    localFiles.push({ id: 'f_' + Date.now(), ...fileRecord });
+                }
+
+                // Překreslíme seznam ihned po uložení metadat.
+                renderFiles();
+                input.value = '';
+                alert('Soubor nahrán a zobrazen!');
+            } catch (err) {
+                console.error('Chyba při nahrávání souboru:', err);
+                input.value = '';
+                alert('Soubor se nepodařilo nahrát: ' + err.message);
+            }
         }
 
         function renderFiles() {
