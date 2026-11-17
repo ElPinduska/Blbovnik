@@ -808,12 +808,31 @@
         let firebasePhotos = [];
         let localFiles = [];
 
+        // Velký seznam souborů neukládáme do localStorage. Na mobilních
+        // prohlížečích má localStorage malou kvótu a zápis cache_files mohl
+        // vyhodit chybu ještě před překreslením seznamu souborů.
+        try { localStorage.removeItem('cache_files'); } catch (e) {
+            console.warn('Starou cache souborů se nepodařilo odstranit:', e);
+        }
+
+        function safeSaveCache(key, value) {
+            // Soubory se načítají přímo z Firestore; neukládáme jejich seznam
+            // do localStorage, aby nedošlo k překročení kvóty prohlížeče.
+            if (key === 'cache_files') return;
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {
+                console.warn(`Místní cache ${key} se nepodařilo uložit:`, e);
+            }
+        }
+
         try {
             firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
             firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
             firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
             firebaseFolders = JSON.parse(localStorage.getItem('cache_folders') || '[]');
-            firebaseFiles = JSON.parse(localStorage.getItem('cache_files') || '[]');
+            // firebaseFiles doplní posluchač Firestore níže.
+            firebaseFiles = [];
             firebasePhotos = JSON.parse(localStorage.getItem('cache_photos') || '[]');
             localFiles = JSON.parse(localStorage.getItem('cache_local_files') || '[]');
         } catch(e) {
@@ -1661,7 +1680,6 @@
                     if (!firebaseFiles.some(item => item.id === docRef.id)) {
                         firebaseFiles.push(savedRecord);
                     }
-                    localStorage.setItem('cache_files', JSON.stringify(firebaseFiles));
                 } else {
                     localFiles.push({ id: 'f_' + Date.now(), ...fileRecord });
                 }
@@ -1908,39 +1926,43 @@
         if (isFirebaseActive) {
             db.collection('projects').onSnapshot(snap => {
                 firebaseProjects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_projects', JSON.stringify(firebaseProjects));
+                safeSaveCache('cache_projects', firebaseProjects);
                 renderProjects();
             });
 
             db.collection('subprojects').onSnapshot(snap => {
                 firebaseSubprojects = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_subprojects', JSON.stringify(firebaseSubprojects));
+                safeSaveCache('cache_subprojects', firebaseSubprojects);
                 if (currentProjectId && currentProjectId !== 'ALL_DEADLINES') renderSubprojects();
             });
 
             db.collection('tasks').onSnapshot(snap => {
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_tasks', JSON.stringify(firebaseTasks));
+                safeSaveCache('cache_tasks', firebaseTasks);
                 if (currentSubprojectId) renderTasks();
                 if (currentProjectId === 'ALL_DEADLINES') renderGlobalAllDeadlinesView();
             });
 
             db.collection('photos').onSnapshot(snap => {
                 firebasePhotos = snap.docs.map(doc => ({ id: doc.id, isPhoto: true, ...doc.data() }));
-                localStorage.setItem('cache_photos', JSON.stringify(firebasePhotos));
+                safeSaveCache('cache_photos', firebasePhotos);
                 if (currentSubprojectId) renderPhotos();
             });
 
             db.collection('folders').onSnapshot(snap => {
                 firebaseFolders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_folders', JSON.stringify(firebaseFolders));
+                safeSaveCache('cache_folders', firebaseFolders);
                 if (currentSubprojectId) renderExplorer();
             });
 
             db.collection('files').onSnapshot(snap => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('cache_files', JSON.stringify(firebaseFiles));
+                // Důležité: nejdříve obnovíme zobrazení. Seznam souborů
+                // neukládáme do localStorage, protože může překročit kvótu.
                 if (currentSubprojectId) renderExplorer();
+            }, err => {
+                console.error('Chyba při načítání souborů z Firestore:', err);
+                alert('Nepodařilo se načíst seznam souborů: ' + err.message);
             });
         }
     </script>
