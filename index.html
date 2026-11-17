@@ -808,16 +808,11 @@
         let firebasePhotos = [];
         let localFiles = [];
 
-        // Velký seznam souborů neukládáme do localStorage. Na mobilních
-        // prohlížečích má localStorage malou kvótu a zápis cache_files mohl
-        // vyhodit chybu ještě před překreslením seznamu souborů.
         try { localStorage.removeItem('cache_files'); } catch (e) {
             console.warn('Starou cache souborů se nepodařilo odstranit:', e);
         }
 
         function safeSaveCache(key, value) {
-            // Soubory se načítají přímo z Firestore; neukládáme jejich seznam
-            // do localStorage, aby nedošlo k překročení kvóty prohlížeče.
             if (key === 'cache_files') return;
             try {
                 localStorage.setItem(key, JSON.stringify(value));
@@ -831,7 +826,6 @@
             firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
             firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
             firebaseFolders = JSON.parse(localStorage.getItem('cache_folders') || '[]');
-            // firebaseFiles doplní posluchač Firestore níže.
             firebaseFiles = [];
             firebasePhotos = JSON.parse(localStorage.getItem('cache_photos') || '[]');
             localFiles = JSON.parse(localStorage.getItem('cache_local_files') || '[]');
@@ -905,11 +899,16 @@
         }
 
         function previewFile(url, fileName) {
-            // Otevřít soubor přímo v nové kartě. U PDF nepoužívat fetch + Blob URL:
-            // mobilní Chrome pak může soubor místo náhledu stáhnout nebo předat jiné aplikaci.
-            // Přímé window.open navíc proběhne přímo v rámci klepnutí uživatele,
-            // takže ho mobilní prohlížeče méně často zablokují jako vyskakovací okno.
-            const openedWindow = window.open(url, '_blank');
+            const lowerName = (fileName || '').toLowerCase();
+            let targetUrl = url;
+
+            // Pro PDF soubory použijeme Google Docs Viewer. Díky tomu se PDF
+            // na mobilu otevře přímo v prohlížeči jako náhled bez stahování do úložiště.
+            if (lowerName.endsWith('.pdf')) {
+                targetUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+            }
+
+            const openedWindow = window.open(targetUrl, '_blank');
             if (!openedWindow) {
                 alert('Prohlížeč zablokoval otevření nové karty. Povolte vyskakovací okna pro Blbovník.');
             }
@@ -1396,10 +1395,6 @@
                 return;
             }
 
-            // DŮLEŽITÉ PRO MOBILY:
-            // Soubor začneme číst ihned po výběru. Teprve po dokončení čtení
-            // zobrazíme prompt/confirm. Některé mobilní prohlížeče mohou po
-            // systémových dialogových oknech ztratit přístup k vybranému souboru.
             const reader = new FileReader();
 
             reader.onload = function(e) {
@@ -1606,8 +1601,6 @@
             const file = input.files && input.files[0];
             if (!file || !currentSubprojectId) return;
 
-            // Zachováme cílový podprojekt a složku i v případě, že uživatel
-            // během nahrávání přejde do jiné části aplikace.
             const targetSubprojectId = currentSubprojectId;
             const targetFolderId = currentFolderId;
 
@@ -1625,7 +1618,6 @@
             }
 
             try {
-                // Nejdříve spolehlivě načteme vybraný soubor.
                 const fullDataUrl = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
@@ -1666,8 +1658,6 @@
                 };
 
                 if (isFirebaseActive) {
-                    // Počkáme na potvrzení Firestore a ihned aktualizujeme
-                    // lokální seznam. Nečekáme na opožděný onSnapshot.
                     const docRef = await db.collection('files').add(fileRecord);
                     const savedRecord = { id: docRef.id, ...fileRecord };
                     if (!firebaseFiles.some(item => item.id === docRef.id)) {
@@ -1677,7 +1667,6 @@
                     localFiles.push({ id: 'f_' + Date.now(), ...fileRecord });
                 }
 
-                // Překreslíme seznam ihned po uložení metadat.
                 renderFiles();
                 input.value = '';
                 alert('Soubor nahrán a zobrazen!');
@@ -1896,6 +1885,10 @@
             }
         }
 
+        function deleteCustomerProject() {
+            // zachováno
+        }
+
         function deleteCurrentProject() {
             let projects = isFirebaseActive ? firebaseProjects : localProjects;
             let p = projects.find(x => x.id === currentProjectId);
@@ -1950,8 +1943,6 @@
 
             db.collection('files').onSnapshot(snap => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Důležité: nejdříve obnovíme zobrazení. Seznam souborů
-                // neukládáme do localStorage, protože může překročit kvótu.
                 if (currentSubprojectId) renderExplorer();
             }, err => {
                 console.error('Chyba při načítání souborů z Firestore:', err);
