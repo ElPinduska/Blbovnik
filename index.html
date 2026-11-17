@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blbovník</title>
     
-    <!-- Ikona aplikace (Mozek s červeným otazníkem) -->
+    <!-- Ikona aplikace (Větší výřez mozku z boku) -->
     <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
 
@@ -100,6 +100,17 @@
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+
+        /* Stylování pro zvětšenou ikonu aplikace v menu */
+        .sidebar-brand img.app-logo {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            object-position: center;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            transform: scale(1.35); /* Ještě větší optické přiblížení středu (mozku) */
         }
 
         .btn-close-sidebar {
@@ -493,7 +504,8 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
-                <i class="fa-solid fa-microchip"></i>
+                <!-- Zvětšená ikona aplikace (mozku) -->
+                <img src="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg" alt="Logo" class="app-logo">
                 <span>Blbovnik</span>
             </div>
             <button class="btn-close-sidebar" onclick="closeSidebar()"><i class="fa-solid fa-xmark"></i></button>
@@ -1520,7 +1532,6 @@
             if (isFirebaseActive) db.collection('files').doc(id).delete();
         }
 
-        // --- FUNKCE PRO PŘESUN POLOŽEK ---
         function openMoveModal(itemId, itemType, itemName) {
             document.getElementById('move-item-id').value = itemId;
             document.getElementById('move-item-type').value = itemType;
@@ -1571,7 +1582,6 @@
                 alert('Položka byla úspěšně přesunuta!');
             }
         }
-        // ---------------------------------
 
         function openProjectModal(id = null) {
             document.getElementById('project-edit-id').value = id || '';
@@ -1740,7 +1750,8 @@
                 if (currentSubprojectId) renderExplorer();
             });
 
-            db.collection('files').onSnapshot(pages => {
+            /* Opravená proměnná 'snap' místo 'pages' */
+            db.collection('files').onSnapshot(snap => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderExplorer();
             });
