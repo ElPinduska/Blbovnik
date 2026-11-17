@@ -904,21 +904,14 @@
             }
         }
 
-        async function previewFile(url, fileName) {
-            const lowerName = fileName.toLowerCase();
-            if (lowerName.endsWith('.pdf')) {
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error('Chyba při načítání PDF');
-                    const arrayBuffer = await response.arrayBuffer();
-                    const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
-                    const blobUrl = URL.createObjectURL(pdfBlob);
-                    window.open(blobUrl, '_blank');
-                } catch (err) {
-                    alert('Nepodařilo se otevřít náhled PDF: ' + err.message);
-                }
-            } else {
-                window.open(url, '_blank');
+        function previewFile(url, fileName) {
+            // Otevřít soubor přímo v nové kartě. U PDF nepoužívat fetch + Blob URL:
+            // mobilní Chrome pak může soubor místo náhledu stáhnout nebo předat jiné aplikaci.
+            // Přímé window.open navíc proběhne přímo v rámci klepnutí uživatele,
+            // takže ho mobilní prohlížeče méně často zablokují jako vyskakovací okno.
+            const openedWindow = window.open(url, '_blank');
+            if (!openedWindow) {
+                alert('Prohlížeč zablokoval otevření nové karty. Povolte vyskakovací okna pro Blbovník.');
             }
         }
 
