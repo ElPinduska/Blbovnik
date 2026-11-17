@@ -621,13 +621,14 @@
                     </div>
                 </section>
 
+                <!-- PŘEDĚLANÁ SEKCE FOTEK PRO MOBILNÍ ZAŘÍZENÍ -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
-                        <button class="btn btn-primary" onclick="document.getElementById('photo-input').value = ''; document.getElementById('photo-input').click()">
+                        <label class="btn btn-primary" style="cursor: pointer; margin: 0;">
                             <i class="fa-solid fa-camera"></i> Nahrát fotku
-                        </button>
-                        <input type="file" id="photo-input" accept="image/*" style="display: none;" onchange="uploadPhoto(event)">
+                            <input type="file" id="photo-input" accept="image/*" style="display: none;" onclick="this.value=null" onchange="uploadPhoto(event)">
+                        </label>
                     </div>
                     <div class="photo-grid" id="photo-grid"></div>
                 </section>
@@ -639,20 +640,21 @@
                             <button class="btn btn-secondary" onclick="openFolderModal()">
                                 <i class="fa-solid fa-folder-plus" style="color: var(--folder-color);"></i> Nová složka
                             </button>
-                            <button class="btn btn-primary" onclick="document.getElementById('file-input').value = ''; document.getElementById('file-input').click()">
+                            <label class="btn btn-primary" style="cursor: pointer; margin: 0;">
                                 <i class="fa-solid fa-upload"></i> Nahrát soubor
-                            </button>
+                                <input type="file" id="file-input" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
+                            </label>
                         </div>
                     </div>
 
                     <div class="folder-breadcrumbs" id="folder-breadcrumbs"></div>
                     <div class="folder-grid" id="folder-grid"></div>
 
-                    <div class="upload-area" onclick="document.getElementById('file-input').value = ''; document.getElementById('file-input').click()">
+                    <label class="upload-area" style="display: block; cursor: pointer;">
                         <i class="fa-solid fa-file-arrow-up fa-2x" style="color: var(--accent-color); margin-bottom: 10px;"></i>
                         <p>Klikněte pro nahrání souborů a kódů (podporuje složky a podadresáře)</p>
-                        <input type="file" id="file-input" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
-                    </div>
+                        <input type="file" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
+                    </label>
 
                     <ul class="file-list" id="file-list"></ul>
                 </section>
@@ -1021,9 +1023,11 @@
                     ? `<a class="deadline-path-link" onclick="jumpToTaskLocation('${item.projId}', '${item.subId}')"><i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}</a>`
                     : `<i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}`;
 
-                // Pokud má úkol vysokou prioritu (p1), název termínu bude tučný
+                // Pokud má úkol vysokou prioritu (p1), bude název tučný a výrazně bílý
                 const isHighPriority = item.task.priority === 'p1';
-                const titleStyle = isHighPriority ? 'font-size: 1rem; font-weight: 700;' : 'font-size: 1rem;';
+                const titleStyle = isHighPriority 
+                    ? 'font-size: 1rem; font-weight: 700; color: #ffffff;' 
+                    : 'font-size: 1rem;';
 
                 div.innerHTML = `
                     <div>
@@ -1096,9 +1100,9 @@
                 const div = document.createElement('div');
                 div.className = `deadline-item ${item.eval.status}`;
                 
-                // Zde také tučné zvýraznění pro vysokou prioritu (p1) v boxu projektu
+                // Tučné a výrazné zvýraznění pro vysokou prioritu (p1) i v boxu podprojektu
                 const isHighPriority = item.task.priority === 'p1';
-                const titleStyle = isHighPriority ? 'font-weight: 700;' : '';
+                const titleStyle = isHighPriority ? 'font-weight: 700; color: #ffffff;' : '';
 
                 div.innerHTML = `
                     <div>
@@ -1315,7 +1319,7 @@
 
             const userChoiceName = prompt('Název fotky:', file.name);
             if (!userChoiceName) {
-                event.target.value = ''; // Reset inputu, aby šlo kliknout znovu
+                event.target.value = '';
                 return;
             }
 
@@ -1372,7 +1376,7 @@
                 }
             };
             reader.readAsDataURL(file);
-            event.target.value = ''; // Pokaždé vyčistit input pro bezproblémové opakované nahrávání
+            event.target.value = '';
         }
 
         function renderPhotos() {
@@ -1758,7 +1762,6 @@
             });
 
             db.collection('tasks').onSnapshot(snap => {
-                firebaseTaskss = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem('cache_tasks', JSON.stringify(firebaseTasks));
                 if (currentSubprojectId) renderTasks();
