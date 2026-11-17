@@ -624,7 +624,7 @@
                     </div>
                 </section>
 
-                <!-- SEKCE FOTEK S NATIVNÍM LABEL PROPOJENÍM PRO MOBIL I PC -->
+                <!-- SEKCE FOTEK S PŘIDANOU VELKOU NAHRÁVACÍ PLOCHOU (STEJNĚ JAKO U SOUBORŮ) -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
@@ -633,6 +633,14 @@
                         </label>
                         <input type="file" id="photo-input" accept="image/*" style="display: none;" onclick="this.value=null" onchange="uploadPhoto(event)">
                     </div>
+
+                    <!-- Velká nahrávací oblast pro fotky – 100% spolehlivá na mobilu -->
+                    <label for="photo-input-drag" class="upload-area" style="display: block; cursor: pointer; border-color: var(--photo-color);">
+                        <i class="fa-solid fa-camera-retro fa-2x" style="color: var(--photo-color); margin-bottom: 10px;"></i>
+                        <p>Klikněte sem pro nahrání fotky z galerie nebo pořízení fotoaparátem</p>
+                    </label>
+                    <input type="file" id="photo-input-drag" accept="image/*" style="display: none;" onclick="this.value=null" onchange="uploadPhoto(event)">
+
                     <div class="photo-grid" id="photo-grid"></div>
                 </section>
 
@@ -800,7 +808,6 @@
         let firebasePhotos = [];
         let localFiles = [];
 
-        // Okamžité načtení všech dat z lokální mezipaměti při startu (zabraňuje 30s výpadku)
         try {
             firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
             firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
@@ -1757,7 +1764,6 @@
         function editCurrentProjectName() { if(currentProjectId && currentProjectId !== 'ALL_DEADLINES') openProjectModal(currentProjectId); }
         function escapeHtml(text) { return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
-        // Okamžité vykreslení z lokální mezipaměti při startu
         renderProjects();
         renderGlobalAllDeadlinesView();
 
