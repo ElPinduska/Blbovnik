@@ -110,7 +110,7 @@
             object-position: center;
             border-radius: 8px;
             border: 1px solid var(--card-border);
-            transform: scale(1.35); /* Ještě větší optické přiblížení středu (mozku) */
+            transform: scale(1.35);
         }
 
         .btn-close-sidebar {
@@ -504,7 +504,6 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
-                <!-- Zvětšená ikona aplikace (mozku) -->
                 <img src="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg" alt="Logo" class="app-logo">
                 <span>Blbovnik</span>
             </div>
@@ -625,7 +624,7 @@
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
-                        <button class="btn btn-primary" onclick="document.getElementById('photo-input').click()">
+                        <button class="btn btn-primary" onclick="document.getElementById('photo-input').value = ''; document.getElementById('photo-input').click()">
                             <i class="fa-solid fa-camera"></i> Nahrát fotku
                         </button>
                         <input type="file" id="photo-input" accept="image/*" style="display: none;" onchange="uploadPhoto(event)">
@@ -640,7 +639,7 @@
                             <button class="btn btn-secondary" onclick="openFolderModal()">
                                 <i class="fa-solid fa-folder-plus" style="color: var(--folder-color);"></i> Nová složka
                             </button>
-                            <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                            <button class="btn btn-primary" onclick="document.getElementById('file-input').value = ''; document.getElementById('file-input').click()">
                                 <i class="fa-solid fa-upload"></i> Nahrát soubor
                             </button>
                         </div>
@@ -649,10 +648,10 @@
                     <div class="folder-breadcrumbs" id="folder-breadcrumbs"></div>
                     <div class="folder-grid" id="folder-grid"></div>
 
-                    <div class="upload-area" onclick="document.getElementById('file-input').click()">
+                    <div class="upload-area" onclick="document.getElementById('file-input').value = ''; document.getElementById('file-input').click()">
                         <i class="fa-solid fa-file-arrow-up fa-2x" style="color: var(--accent-color); margin-bottom: 10px;"></i>
                         <p>Klikněte pro nahrání souborů a kódů (podporuje složky a podadresáře)</p>
-                        <input type="file" id="file-input" style="display: none;" onchange="uploadFile(event)">
+                        <input type="file" id="file-input" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
                     </div>
 
                     <ul class="file-list" id="file-list"></ul>
@@ -1022,9 +1021,13 @@
                     ? `<a class="deadline-path-link" onclick="jumpToTaskLocation('${item.projId}', '${item.subId}')"><i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}</a>`
                     : `<i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}`;
 
+                // Pokud má úkol vysokou prioritu (p1), název termínu bude tučný
+                const isHighPriority = item.task.priority === 'p1';
+                const titleStyle = isHighPriority ? 'font-size: 1rem; font-weight: 700;' : 'font-size: 1rem;';
+
                 div.innerHTML = `
                     <div>
-                        <strong style="font-size: 1rem;">${escapeHtml(item.task.title)}</strong>
+                        <strong style="${titleStyle}">${escapeHtml(item.task.title)}</strong>
                         <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 3px;">
                             ${pathHtml}
                         </div>
@@ -1092,9 +1095,14 @@
             upcoming.forEach(item => {
                 const div = document.createElement('div');
                 div.className = `deadline-item ${item.eval.status}`;
+                
+                // Zde také tučné zvýraznění pro vysokou prioritu (p1) v boxu projektu
+                const isHighPriority = item.task.priority === 'p1';
+                const titleStyle = isHighPriority ? 'font-weight: 700;' : '';
+
                 div.innerHTML = `
                     <div>
-                        <strong>${escapeHtml(item.task.title)}</strong> 
+                        <strong style="${titleStyle}">${escapeHtml(item.task.title)}</strong> 
                         <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 8px;">(${escapeHtml(item.subName)})</span>
                     </div>
                     <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
@@ -1296,6 +1304,8 @@
                     renderPhotos();
                 }
                 alert('Fotka nahrána!');
+            }).catch(err => {
+                alert('Chyba při odesílání na GitHub: ' + err.message);
             });
         }
 
@@ -1304,12 +1314,18 @@
             if (!file || !currentSubprojectId) return;
 
             const userChoiceName = prompt('Název fotky:', file.name);
-            if (!userChoiceName) return;
+            if (!userChoiceName) {
+                event.target.value = ''; // Reset inputu, aby šlo kliknout znovu
+                return;
+            }
 
             const resizeChoice = confirm("Chcete fotku automaticky zmenšit pro úsporu místa a rychlejší načítání?\n\nOK = Zmenšit na Full HD\nZrušit = Nahrát v plné (původní) velikosti bez úprav");
 
             const token = getGitHubToken();
-            if (!token) return alert('Chybí GitHub token!');
+            if (!token) {
+                event.target.value = '';
+                return alert('Chybí GitHub token!');
+            }
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -1350,10 +1366,13 @@
                         const estimatedBytes = Math.round((base64Content.length * 3) / 4);
                         sendPhotoToGitHub(base64Content, userChoiceName, estimatedBytes, token);
                     };
+                    img.onerror = function() {
+                        alert('Nepodařilo se zpracovat obrázek.');
+                    };
                 }
             };
             reader.readAsDataURL(file);
-            event.target.value = '';
+            event.target.value = ''; // Pokaždé vyčistit input pro bezproblémové opakované nahrávání
         }
 
         function renderPhotos() {
@@ -1461,10 +1480,16 @@
             const file = event.target.files[0];
             if (!file || !currentSubprojectId) return;
             const userChoiceName = prompt('Název souboru:', file.name);
-            if (!userChoiceName) return;
+            if (!userChoiceName) {
+                event.target.value = '';
+                return;
+            }
 
             const token = getGitHubToken();
-            if (!token) return alert('Chybí GitHub token!');
+            if (!token) {
+                event.target.value = '';
+                return alert('Chybí GitHub token!');
+            }
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -1733,6 +1758,7 @@
             });
 
             db.collection('tasks').onSnapshot(snap => {
+                firebaseTaskss = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 firebaseTasks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem('cache_tasks', JSON.stringify(firebaseTasks));
                 if (currentSubprojectId) renderTasks();
@@ -1750,7 +1776,6 @@
                 if (currentSubprojectId) renderExplorer();
             });
 
-            /* Opravená proměnná 'snap' místo 'pages' */
             db.collection('files').onSnapshot(snap => {
                 firebaseFiles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentSubprojectId) renderExplorer();
