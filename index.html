@@ -780,7 +780,9 @@
         let firebasePhotos = [];
         let localFiles = [];
 
-        try {
+     try {
+            // Pokud chceme vynutit stahování čerstvých dat ze serveru a předejít staré cache z jiného zařízení:
+            // (Cache smažeme, pokud uplynulo víc než 6 hodin od posledního použití, nebo ji načteme jen jako zálohu)
             firebaseProjects = JSON.parse(localStorage.getItem('cache_projects') || '[]');
             firebaseSubprojects = JSON.parse(localStorage.getItem('cache_subprojects') || '[]');
             firebaseTasks = JSON.parse(localStorage.getItem('cache_tasks') || '[]');
