@@ -1384,24 +1384,12 @@
                 return;
             }
 
-            const userChoiceName = prompt('Název fotky:', file.name);
-            if (!userChoiceName || !userChoiceName.trim()) {
-                input.value = '';
-                return;
-            }
-
-            const resizeChoice = confirm("Chcete fotku automaticky zmenšit pro úsporu místa a rychlejší načítání?\n\nOK = Zmenšit na Full HD\nZrušit = Nahrát v plné (původní) velikosti bez úprav");
-
-            const token = getGitHubToken();
-            if (!token) {
-                input.value = '';
-                alert('Chybí GitHub token!');
-                return;
-            }
-
-            // Na některých mobilech může okamžité vymazání inputu přerušit čtení souboru.
-            // Input proto vymažeme až po dokončení FileReaderu.
+            // DŮLEŽITÉ PRO MOBILY:
+            // Soubor začneme číst ihned po výběru. Teprve po dokončení čtení
+            // zobrazíme prompt/confirm. Některé mobilní prohlížeče mohou po
+            // systémových dialogových oknech ztratit přístup k vybranému souboru.
             const reader = new FileReader();
+
             reader.onload = function(e) {
                 input.value = '';
                 try {
@@ -1410,63 +1398,82 @@
                         throw new Error('Prohlížeč nepředal obsah fotografie.');
                     }
 
+                    const userChoiceName = prompt('Název fotky:', file.name);
+                    if (!userChoiceName || !userChoiceName.trim()) return;
+
+                    const resizeChoice = confirm("Chcete fotku automaticky zmenšit pro úsporu místa a rychlejší načítání?\n\nOK = Zmenšit na Full HD\nZrušit = Nahrát v plné (původní) velikosti bez úprav");
+
+                    const token = getGitHubToken();
+                    if (!token) {
+                        alert('Chybí GitHub token!');
+                        return;
+                    }
+
                     if (!resizeChoice) {
                         const base64Content = originalDataUrl.split(',')[1];
                         if (!base64Content) throw new Error('Fotografie je prázdná nebo ji nelze přečíst.');
-                        sendPhotoToGitHub(base64Content, userChoiceName, file.size, token, subprojectId, folderId);
-                    } else {
-                        const img = new Image();
-                        img.onload = function() {
-                            try {
-                                const canvas = document.createElement('canvas');
-                                const ctx = canvas.getContext('2d');
-                                if (!ctx) throw new Error('Prohlížeč nedokázal připravit zmenšení fotografie.');
-
-                                let width = img.naturalWidth || img.width;
-                                let height = img.naturalHeight || img.height;
-                                if (!width || !height) throw new Error('Fotografie má neplatné rozměry.');
-
-                                const MAX_WIDTH = 1920;
-                                const MAX_HEIGHT = 1080;
-                                const scale = Math.min(1, MAX_WIDTH / width, MAX_HEIGHT / height);
-                                width = Math.max(1, Math.round(width * scale));
-                                height = Math.max(1, Math.round(height * scale));
-
-                                canvas.width = width;
-                                canvas.height = height;
-                                ctx.drawImage(img, 0, 0, width, height);
-
-                                const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                                const base64Content = resizedDataUrl.split(',')[1];
-                                if (!base64Content) throw new Error('Zmenšenou fotografii se nepodařilo vytvořit.');
-
-                                const estimatedBytes = Math.round((base64Content.length * 3) / 4);
-                                let resizedName = userChoiceName.trim();
-                                if (!/\.jpe?g$/i.test(resizedName)) {
-                                    resizedName = resizedName.replace(/\.[^.]+$/, '') + '.jpg';
-                                }
-                                sendPhotoToGitHub(base64Content, resizedName, estimatedBytes, token, subprojectId, folderId);
-                            } catch (err) {
-                                console.error('Chyba při zmenšování fotografie:', err);
-                                alert('Fotografii se nepodařilo zpracovat: ' + err.message);
-                            }
-                        };
-                        img.onerror = function() {
-                            alert('Prohlížeč nedokázal otevřít tento formát fotografie. Zkuste ji nahrát bez zmenšení nebo jako JPG.');
-                        };
-                        img.src = originalDataUrl;
+                        sendPhotoToGitHub(base64Content, userChoiceName.trim(), file.size, token, subprojectId, folderId);
+                        return;
                     }
+
+                    const img = new Image();
+                    img.onload = function() {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) throw new Error('Prohlížeč nedokázal připravit zmenšení fotografie.');
+
+                            let width = img.naturalWidth || img.width;
+                            let height = img.naturalHeight || img.height;
+                            if (!width || !height) throw new Error('Fotografie má neplatné rozměry.');
+
+                            const MAX_WIDTH = 1920;
+                            const MAX_HEIGHT = 1080;
+                            const scale = Math.min(1, MAX_WIDTH / width, MAX_HEIGHT / height);
+                            width = Math.max(1, Math.round(width * scale));
+                            height = Math.max(1, Math.round(height * scale));
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                            const base64Content = resizedDataUrl.split(',')[1];
+                            if (!base64Content) throw new Error('Zmenšenou fotografii se nepodařilo vytvořit.');
+
+                            const estimatedBytes = Math.round((base64Content.length * 3) / 4);
+                            let resizedName = userChoiceName.trim();
+                            if (!/\.jpe?g$/i.test(resizedName)) {
+                                resizedName = resizedName.replace(/\.[^.]+$/, '') + '.jpg';
+                            }
+                            sendPhotoToGitHub(base64Content, resizedName, estimatedBytes, token, subprojectId, folderId);
+                        } catch (err) {
+                            console.error('Chyba při zmenšování fotografie:', err);
+                            alert('Fotografii se nepodařilo zpracovat: ' + err.message);
+                        }
+                    };
+                    img.onerror = function() {
+                        alert('Prohlížeč nedokázal otevřít tento formát fotografie. Zkuste ji nahrát bez zmenšení nebo jako JPG.');
+                    };
+                    img.src = originalDataUrl;
                 } catch (err) {
-                    console.error('Chyba při čtení fotografie:', err);
+                    console.error('Chyba při zpracování fotografie:', err);
                     alert('Fotografii se nepodařilo připravit k nahrání: ' + err.message);
                 }
             };
+
             reader.onerror = function() {
                 input.value = '';
                 const detail = reader.error && reader.error.message ? reader.error.message : 'neznámá chyba';
-                console.error('FileReader chyba:', reader.error);
-                alert('Mobilní prohlížeč nedokázal přečíst vybranou fotografii: ' + detail);
+                console.error('FileReader chyba:', reader.error, {
+                    name: file.name,
+                    type: file.type,
+                    size: file.size
+                });
+                alert('Mobilní prohlížeč nedokázal přečíst vybranou fotografii: ' + detail +
+                    '\n\nZkuste fotografii nejprve uložit přímo do telefonu a vybrat ji z Galerie nebo Fotek.');
             };
+
             reader.onabort = function() {
                 input.value = '';
                 alert('Čtení fotografie bylo přerušeno. Zkuste ji vybrat znovu.');
