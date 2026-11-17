@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blbovník</title>
     
-    <!-- Ikona aplikace (Větší výřez mozku z boku) -->
+    <!-- Ikona aplikace -->
     <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ElPinduska/Blbovnik-ulozene_soubory/main/photos/subproject_vraFpqN1I7hbqNg9XFpr/1794916581068_Blbovnik-ikona.jpg">
 
@@ -21,9 +21,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-    <!-- Highlight.js pro zvýraznění kódu v Quill editoru -->
+    <!-- Highlight.js & Quill.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
-    <!-- Quill.js Editor JS -->
     <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
     <style>
@@ -102,7 +101,6 @@
             gap: 12px;
         }
 
-        /* Stylování pro zvětšenou ikonu aplikace v menu */
         .sidebar-brand img.app-logo {
             width: 36px;
             height: 36px;
@@ -309,6 +307,11 @@
         .deadline-item.yellow { border-left: 4px solid var(--warning-color); background: rgba(245, 158, 11, 0.08); }
         .deadline-item.orange { border-left: 4px solid #f97316; background: rgba(249, 115, 22, 0.12); }
         .deadline-item.red { border-left: 4px solid var(--danger-color); background: rgba(239, 68, 68, 0.12); }
+        .deadline-item.priority-p1 { 
+            border-left: 4px solid var(--danger-color) !important; 
+            background: rgba(239, 68, 68, 0.18) !important; 
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+        }
 
         .deadline-path-link {
             color: var(--accent-color);
@@ -621,14 +624,14 @@
                     </div>
                 </section>
 
-                <!-- SEKCE FOTEK S NATIVNÍ LABEL VAZBOU PRO MOBILNÍ ZAŘÍZENÍ -->
+                <!-- SEKCE FOTEK S JISTÝM JS SPOUŠTĚČEM PRO MOBIL I PC -->
                 <section class="project-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2><i class="fa-solid fa-images" style="color: var(--photo-color);"></i> Fotky</h2>
-                        <label class="btn btn-primary" style="cursor: pointer; margin: 0; display: inline-flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('photo-input').click()">
                             <i class="fa-solid fa-camera"></i> Nahrát fotku
-                            <input type="file" id="photo-input" accept="image/*" style="display: none;" onclick="this.value=null" onchange="uploadPhoto(event)">
-                        </label>
+                        </button>
+                        <input type="file" id="photo-input" accept="image/*" style="display: none;" onclick="this.value=null" onchange="uploadPhoto(event)">
                     </div>
                     <div class="photo-grid" id="photo-grid"></div>
                 </section>
@@ -640,21 +643,21 @@
                             <button class="btn btn-secondary" onclick="openFolderModal()">
                                 <i class="fa-solid fa-folder-plus" style="color: var(--folder-color);"></i> Nová složka
                             </button>
-                            <label class="btn btn-primary" style="cursor: pointer; margin: 0; display: inline-flex; align-items: center; gap: 8px;">
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('file-input').click()">
                                 <i class="fa-solid fa-upload"></i> Nahrát soubor
-                                <input type="file" id="file-input" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
-                            </label>
+                            </button>
+                            <input type="file" id="file-input" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
                         </div>
                     </div>
 
                     <div class="folder-breadcrumbs" id="folder-breadcrumbs"></div>
                     <div class="folder-grid" id="folder-grid"></div>
 
-                    <label class="upload-area" style="display: block; cursor: pointer;">
+                    <div class="upload-area" onclick="document.getElementById('file-input-drag').click()">
                         <i class="fa-solid fa-file-arrow-up fa-2x" style="color: var(--accent-color); margin-bottom: 10px;"></i>
                         <p>Klikněte pro nahrání souborů a kódů (podporuje složky a podadresáře)</p>
-                        <input type="file" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
-                    </label>
+                        <input type="file" id="file-input-drag" style="display: none;" onclick="this.value=null" onchange="uploadFile(event)">
+                    </div>
 
                     <ul class="file-list" id="file-list"></ul>
                 </section>
@@ -1016,18 +1019,18 @@
             }
 
             sortedTasks.forEach(item => {
+                const isHighPriority = item.task.priority === 'p1';
+                // Vysoká priorita (p1) má přednost ve vizuálním zvýraznění (červený styl, badge)
+                const itemClass = isHighPriority ? 'deadline-item red priority-p1' : `deadline-item ${item.eval.status}`;
+                const priorityBadge = isHighPriority ? `<span class="badge badge-p1" style="margin-right: 8px;">Vysoká</span>` : '';
+                const titleStyle = isHighPriority ? 'font-size: 1rem; font-weight: 700; color: #ffffff;' : 'font-size: 1rem;';
+
                 const div = document.createElement('div');
-                div.className = `deadline-item ${item.eval.status}`;
+                div.className = itemClass;
                 
                 const pathHtml = item.projId && item.subId 
                     ? `<a class="deadline-path-link" onclick="jumpToTaskLocation('${item.projId}', '${item.subId}')"><i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}</a>`
                     : `<i class="fa-solid fa-folder-open"></i> ${escapeHtml(item.projName)} / ${escapeHtml(item.subName)}`;
-
-                // Zvýraznění vysoké priority (p1) – tučně a plně bíle, aby to šlo skvěle vidět
-                const isHighPriority = item.task.priority === 'p1';
-                const titleStyle = isHighPriority 
-                    ? 'font-size: 1rem; font-weight: 700; color: #ffffff;' 
-                    : 'font-size: 1rem;';
 
                 div.innerHTML = `
                     <div>
@@ -1036,7 +1039,10 @@
                             ${pathHtml}
                         </div>
                     </div>
-                    <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${priorityBadge}
+                        <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
+                    </div>
                 `;
                 container.appendChild(div);
             });
@@ -1097,18 +1103,23 @@
 
             box.style.display = 'block';
             upcoming.forEach(item => {
-                const div = document.createElement('div');
-                div.className = `deadline-item ${item.eval.status}`;
-                
                 const isHighPriority = item.task.priority === 'p1';
+                const itemClass = isHighPriority ? 'deadline-item red priority-p1' : `deadline-item ${item.eval.status}`;
+                const priorityBadge = isHighPriority ? `<span class="badge badge-p1" style="margin-right: 8px;">Vysoká</span>` : '';
                 const titleStyle = isHighPriority ? 'font-weight: 700; color: #ffffff;' : '';
+
+                const div = document.createElement('div');
+                div.className = itemClass;
 
                 div.innerHTML = `
                     <div>
                         <strong style="${titleStyle}">${escapeHtml(item.task.title)}</strong> 
                         <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 8px;">(${escapeHtml(item.subName)})</span>
                     </div>
-                    <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${priorityBadge}
+                        <span class="badge badge-date ${item.eval.status}">${item.eval.text}</span>
+                    </div>
                 `;
                 listContainer.appendChild(div);
             });
